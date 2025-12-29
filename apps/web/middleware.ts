@@ -28,13 +28,25 @@ async function getUser(request: NextRequest) {
     const env = ctx?.env as Record<string, string | undefined> | undefined;
     const secret = env?.AUTH_SECRET ?? process.env.AUTH_SECRET;
 
+    // Debug: Log context availability (remove after debugging)
+    console.log('[Middleware Debug]', {
+      hasContext: !!ctx,
+      hasEnv: !!env,
+      hasSecret: !!secret,
+      secretLength: secret?.length,
+      cookies: request.cookies.getAll().map(c => c.name),
+    });
+
     const token = await getToken({
       req: request,
       secret,
     });
 
+    console.log('[Middleware Debug] Token:', !!token);
+
     return token;
-  } catch {
+  } catch (error) {
+    console.error('[Middleware Error]', error);
     return null;
   }
 }
