@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse, URLPattern } from 'next/server';
 
 import { CsrfError, createCsrfProtect } from '@edge-csrf/nextjs';
+import { getOptionalRequestContext } from '@cloudflare/next-on-pages';
 import { getToken } from 'next-auth/jwt';
 
 import appConfig from '~/config/app.config';
@@ -22,9 +23,14 @@ export const config = {
  */
 async function getUser(request: NextRequest) {
   try {
+    // Get secret from Cloudflare runtime context, fallback to process.env for local dev
+    const ctx = getOptionalRequestContext();
+    const env = ctx?.env as Record<string, string | undefined> | undefined;
+    const secret = env?.AUTH_SECRET ?? process.env.AUTH_SECRET;
+
     const token = await getToken({
       req: request,
-      secret: process.env.AUTH_SECRET,
+      secret,
     });
 
     return token;
