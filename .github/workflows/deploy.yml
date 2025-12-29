@@ -41,12 +41,11 @@ jobs:
       - name: Build for Cloudflare Pages
         run: pnpm --filter web exec next-on-pages
         env:
-          # Site config (set in GitHub repository variables or secrets)
-          NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
-          NEXT_PUBLIC_PRODUCT_NAME: ${{ vars.NEXT_PUBLIC_PRODUCT_NAME }}
-          NEXT_PUBLIC_SITE_TITLE: ${{ vars.NEXT_PUBLIC_SITE_TITLE }}
-          NEXT_PUBLIC_SITE_DESCRIPTION: ${{ vars.NEXT_PUBLIC_SITE_DESCRIPTION }}
-          NEXT_PUBLIC_DEFAULT_LOCALE: ${{ vars.NEXT_PUBLIC_DEFAULT_LOCALE }}
+          NEXT_PUBLIC_SITE_URL: https://zeitpal.com
+          NEXT_PUBLIC_PRODUCT_NAME: ZeitPal
+          NEXT_PUBLIC_SITE_TITLE: ZeitPal
+          NEXT_PUBLIC_SITE_DESCRIPTION: ZeitPal
+          NEXT_PUBLIC_DEFAULT_LOCALE: en
           NEXT_PUBLIC_DEFAULT_THEME_MODE: ${{ vars.NEXT_PUBLIC_DEFAULT_THEME_MODE || 'light' }}
           NEXT_PUBLIC_THEME_COLOR: ${{ vars.NEXT_PUBLIC_THEME_COLOR || '#ffffff' }}
           NEXT_PUBLIC_THEME_COLOR_DARK: ${{ vars.NEXT_PUBLIC_THEME_COLOR_DARK || '#0a0a0a' }}
