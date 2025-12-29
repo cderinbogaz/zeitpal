@@ -63,5 +63,6 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          packageManager: pnpm
           workingDirectory: apps/web
           command: pages deploy .vercel/output/static --project-name=zeitpal
