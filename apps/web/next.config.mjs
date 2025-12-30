@@ -1,5 +1,6 @@
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const ENABLE_REACT_COMPILER = process.env.ENABLE_REACT_COMPILER === 'true';
+const ENABLE_TURBO = !IS_PRODUCTION;
 
 const INTERNAL_PACKAGES = [
   '@kit/ui',
@@ -31,9 +32,13 @@ const config = {
   experimental: {
     mdxRs: true,
     reactCompiler: ENABLE_REACT_COMPILER,
-    turbo: {
-      resolveExtensions: ['.ts', '.tsx', '.js', '.jsx'],
-    },
+    ...(ENABLE_TURBO
+      ? {
+          turbo: {
+            resolveExtensions: ['.ts', '.tsx', '.js', '.jsx'],
+          },
+        }
+      : {}),
     optimizePackageImports: [
       'recharts',
       'lucide-react',
