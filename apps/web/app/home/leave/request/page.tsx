@@ -3,7 +3,6 @@ import { Trans } from '@kit/ui/trans';
 
 import { LeaveRequestForm } from './_components/leave-request-form';
 
-export const runtime = 'edge';
 
 export default function LeaveRequestPage() {
   return (

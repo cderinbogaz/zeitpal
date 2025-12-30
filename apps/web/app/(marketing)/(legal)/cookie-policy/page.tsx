@@ -1,4 +1,3 @@
-export const runtime = 'edge';
 
 import { SitePageHeader } from '~/(marketing)/_components/site-page-header';
 import { createI18nServerInstance } from '~/lib/i18n/i18n.server';

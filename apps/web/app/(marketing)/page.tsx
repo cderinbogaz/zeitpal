@@ -1,4 +1,3 @@
-export const runtime = 'edge';
 
 import { HomeClient } from './_components/home-client';
 

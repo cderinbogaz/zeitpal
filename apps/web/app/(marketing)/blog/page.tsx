@@ -17,7 +17,6 @@ import { Trans } from '@kit/ui/trans';
 import { createI18nServerInstance } from '~/lib/i18n/i18n.server';
 import { withI18n } from '~/lib/i18n/with-i18n';
 
-export const runtime = 'edge';
 
 export const generateMetadata = async (): Promise<Metadata> => {
   const { t } = await createI18nServerInstance();

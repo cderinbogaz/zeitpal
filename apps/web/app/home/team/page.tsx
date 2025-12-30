@@ -4,7 +4,6 @@ import { Trans } from '@kit/ui/trans';
 import { TeamMembersList } from './_components/team-members-list';
 import { TeamsManagement } from './_components/teams-management';
 
-export const runtime = 'edge';
 
 export default function TeamPage() {
   return (

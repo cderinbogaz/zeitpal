@@ -3,7 +3,6 @@ import { Trans } from '@kit/ui/trans';
 
 import { TeamCalendar } from './_components/team-calendar';
 
-export const runtime = 'edge';
 
 export default function CalendarPage() {
   return (

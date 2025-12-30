@@ -3,7 +3,6 @@ import { Trans } from '@kit/ui/trans';
 
 import { ApprovalRulesManagement } from './_components/approval-rules-management';
 
-export const runtime = 'edge';
 
 export default function AdminApprovalsPage() {
   return (

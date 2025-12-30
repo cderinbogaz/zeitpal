@@ -3,7 +3,6 @@ import { Trans } from '@kit/ui/trans';
 
 import { MembersManagement } from './_components/members-management';
 
-export const runtime = 'edge';
 
 export default function AdminMembersPage() {
   return (

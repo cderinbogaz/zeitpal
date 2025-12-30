@@ -3,7 +3,6 @@ import { Trans } from '@kit/ui/trans';
 
 import { PoliciesManagement } from './_components/policies-management';
 
-export const runtime = 'edge';
 
 export default function AdminPoliciesPage() {
   return (

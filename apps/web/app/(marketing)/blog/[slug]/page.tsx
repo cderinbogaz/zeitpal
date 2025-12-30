@@ -12,7 +12,6 @@ import { Button } from '@kit/ui/button';
 import { createI18nServerInstance } from '~/lib/i18n/i18n.server';
 import { withI18n } from '~/lib/i18n/with-i18n';
 
-export const runtime = 'edge';
 
 interface PageProps {
   params: Promise<{ slug: string }>;

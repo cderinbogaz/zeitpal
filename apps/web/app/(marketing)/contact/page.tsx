@@ -1,4 +1,3 @@
-export const runtime = 'edge';
 
 import { ContactClient } from './_components/contact-client';
 

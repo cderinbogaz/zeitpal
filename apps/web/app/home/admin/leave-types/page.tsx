@@ -3,7 +3,6 @@ import { Trans } from '@kit/ui/trans';
 
 import { LeaveTypesManagement } from './_components/leave-types-management';
 
-export const runtime = 'edge';
 
 export default function AdminLeaveTypesPage() {
   return (

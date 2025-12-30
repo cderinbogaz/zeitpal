@@ -136,31 +136,21 @@ else
 fi
 
 # =========================================
-# 2. EDGE RUNTIME CHECK
+# 2. EDGE RUNTIME CHECK (API routes only)
 # =========================================
 echo ""
-echo "🌐 [2/4] Checking for Edge Runtime declarations..."
+echo "🌐 [2/4] Checking for Edge Runtime declarations in API routes..."
 
-# Find all page.tsx files in apps/web/app that are staged
+# Find all route.ts files in apps/web/app/api that are staged
 EDGE_ISSUES=""
 EDGE_CHECK_FAILED=0
 
 for FILE in $STAGED_FILES; do
-    # Only check page.tsx files in the app directory
-    if echo "$FILE" | grep -qE "^apps/web/app/.*page\.tsx$"; then
-        # Skip files in special directories that don't need edge runtime
-        if echo "$FILE" | grep -qE "(api|_components|_hooks|_lib|_utils)/"; then
-            continue
-        fi
-
+    # Only check route.ts files in the api directory
+    if echo "$FILE" | grep -qE "^apps/web/app/api/.*route\.ts$"; then
         # Check if the file exists
         if [ -f "$FILE" ]; then
-            # Skip client components - they inherit runtime from layout
-            if grep -q "^'use client'" "$FILE" || grep -q '^"use client"' "$FILE"; then
-                continue
-            fi
-
-            # Server components must have edge runtime export
+            # API routes must have edge runtime export
             if ! grep -q "export const runtime = 'edge'" "$FILE"; then
                 EDGE_ISSUES="$EDGE_ISSUES\n❌ Missing 'export const runtime = \"edge\"' in: $FILE"
                 EDGE_CHECK_FAILED=1
@@ -173,11 +163,11 @@ if [ $EDGE_CHECK_FAILED -eq 1 ]; then
     echo -e "$EDGE_ISSUES"
     echo ""
     echo "🚨 EDGE RUNTIME CHECK FAILED!"
-    echo "All server component page.tsx files must include: export const runtime = 'edge'"
-    echo "This is required for Cloudflare Pages deployment."
+    echo "All API route.ts files must include: export const runtime = 'edge'"
+    echo "This is required for Cloudflare Workers deployment."
     CHECKS_PASSED=0
 else
-    echo "✅ All page files have Edge Runtime declaration"
+    echo "✅ All API routes have Edge Runtime declaration"
 fi
 
 # =========================================

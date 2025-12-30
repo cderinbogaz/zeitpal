@@ -3,7 +3,6 @@ import { Trans } from '@kit/ui/trans';
 
 import { OrganizationSettingsForm } from './_components/organization-settings-form';
 
-export const runtime = 'edge';
 
 export default function AdminOrganizationPage() {
   return (

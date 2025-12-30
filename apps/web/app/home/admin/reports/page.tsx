@@ -3,7 +3,6 @@ import { Trans } from '@kit/ui/trans';
 
 import { ReportsDashboard } from './_components/reports-dashboard';
 
-export const runtime = 'edge';
 
 export default function AdminReportsPage() {
   return (

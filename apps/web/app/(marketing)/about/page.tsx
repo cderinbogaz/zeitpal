@@ -1,4 +1,3 @@
-export const runtime = 'edge';
 
 import { ArrowRight, Shield, Heart, Zap, Users } from 'lucide-react';
 

@@ -10,7 +10,6 @@ import pathsConfig from '~/config/paths.config';
 
 import { LeaveRequestDetail } from './_components/leave-request-detail';
 
-export const runtime = 'edge';
 
 interface LeaveRequestDetailPageProps {
   params: Promise<{ id: string }>;

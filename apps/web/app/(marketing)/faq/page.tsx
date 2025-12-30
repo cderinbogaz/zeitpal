@@ -1,4 +1,3 @@
-export const runtime = 'edge';
 
 import { ArrowRight, ChevronDown } from 'lucide-react';
 

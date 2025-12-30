@@ -2,7 +2,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@kit/
 
 import { CreateOrgWizard } from './_components/create-org-wizard';
 
-export const runtime = 'edge';
 
 export default function CreateOrganizationPage() {
   return (

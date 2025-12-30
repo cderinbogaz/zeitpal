@@ -1,4 +1,3 @@
-export const runtime = 'edge';
 
 import { ArrowRight, Check } from 'lucide-react';
 

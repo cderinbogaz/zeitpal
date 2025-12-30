@@ -8,7 +8,6 @@ import { QuickActions } from './_components/quick-actions';
 import { RecentRequests } from './_components/recent-requests';
 import { TeamAbsences } from './_components/team-absences';
 
-export const runtime = 'edge';
 
 export default async function HomePage() {
   // Ensure user has completed onboarding (has an organization)

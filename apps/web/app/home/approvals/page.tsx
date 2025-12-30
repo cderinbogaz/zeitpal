@@ -3,7 +3,6 @@ import { Trans } from '@kit/ui/trans';
 
 import { ApprovalQueue } from './_components/approval-queue';
 
-export const runtime = 'edge';
 
 export default function ApprovalsPage() {
   return (

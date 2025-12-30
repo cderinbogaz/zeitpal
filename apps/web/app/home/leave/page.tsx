@@ -5,7 +5,6 @@ import { LeaveBalanceOverview } from '../_components/leave-balance-overview';
 import { LeaveRequestsList } from './_components/leave-requests-list';
 import { NewLeaveRequestDialog } from './_components/new-leave-request-dialog';
 
-export const runtime = 'edge';
 
 export default function LeavePage() {
   return (

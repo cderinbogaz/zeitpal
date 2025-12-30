@@ -3,7 +3,6 @@ import { Trans } from '@kit/ui/trans';
 
 import { HolidaysManagement } from './_components/holidays-management';
 
-export const runtime = 'edge';
 
 export default function AdminHolidaysPage() {
   return (
