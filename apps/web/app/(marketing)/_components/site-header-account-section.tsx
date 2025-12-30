@@ -4,6 +4,8 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 
 import type { User } from 'next-auth';
+import { signOut } from 'next-auth/react';
+import { LogOut } from 'lucide-react';
 
 import { LocalizedLink } from '~/components/localized-link';
 
@@ -90,10 +92,12 @@ function UserDropdown({ user }: { user: User }) {
             </Link>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem asChild>
-            <Link href="/api/auth/signout">
-              <Trans i18nKey={'auth:signOut'} />
-            </Link>
+          <DropdownMenuItem
+            onClick={() => signOut({ callbackUrl: '/' })}
+            className="cursor-pointer"
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            <Trans i18nKey={'auth:signOut'} />
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

@@ -69,11 +69,7 @@ export default function OrganizationPage() {
     setSlugAvailability('checking');
 
     try {
-      const response = await fetch('/api/organizations/check-slug', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug }),
-      });
+      const response = await fetch(`/api/organizations/check-slug?slug=${encodeURIComponent(slug)}`);
 
       const data = await response.json();
       lastCheckedSlug.current = slug;
