@@ -229,7 +229,7 @@ function getPatterns() {
   return [
     {
       pattern: new URLPattern({ pathname: '/auth/*?' }),
-      handler: async (req: NextRequest, res: NextResponse) => {
+      handler: async (req: NextRequest, _res: NextResponse) => {
         const token = await getUser(req);
 
         // the user is logged out, so we don't need to do anything
@@ -251,7 +251,7 @@ function getPatterns() {
     },
     {
       pattern: new URLPattern({ pathname: '/home/*?' }),
-      handler: async (req: NextRequest, res: NextResponse) => {
+      handler: async (req: NextRequest, _res: NextResponse) => {
         const token = await getUser(req);
 
         const origin = req.nextUrl.origin;
@@ -273,7 +273,7 @@ function getPatterns() {
     },
     {
       pattern: new URLPattern({ pathname: '/onboarding/*?' }),
-      handler: async (req: NextRequest, res: NextResponse) => {
+      handler: async (req: NextRequest, _res: NextResponse) => {
         const token = await getUser(req);
 
         const origin = req.nextUrl.origin;

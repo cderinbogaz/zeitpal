@@ -54,7 +54,7 @@ export function TestimonialCard({
         )}
 
         <blockquote className="text-foreground mb-6 flex-1 text-base italic leading-relaxed">
-          "{quote}"
+          &ldquo;{quote}&rdquo;
         </blockquote>
 
         <div className="flex items-center gap-3">

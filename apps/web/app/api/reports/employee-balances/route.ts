@@ -164,7 +164,7 @@ export async function GET(request: NextRequest) {
     .bind(...dataParams)
     .all<Record<string, unknown>>();
 
-  const employees = dataResult.results.map((row) => ({
+  const employees = dataResult.results.map((row: Record<string, unknown>) => ({
     userId: row.user_id,
     name: row.name || row.email,
     email: row.email,

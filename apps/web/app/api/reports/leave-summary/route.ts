@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     return validationError(query.error.flatten());
   }
 
-  const { year, startDate, endDate, teamId, leaveTypeId } = query.data;
+  const { year, startDate, endDate, teamId: _teamId, leaveTypeId } = query.data;
   const { env } = getCloudflareContext();
   const db = env.DB;
 
@@ -206,7 +206,7 @@ export async function GET(request: NextRequest) {
       employeesWithLeave: stats?.employees_with_leave ?? 0,
       employeesOnLeaveToday: onLeaveToday?.count ?? 0,
     },
-    byLeaveType: usageByType.results.map((row) => ({
+    byLeaveType: usageByType.results.map((row: Record<string, unknown>) => ({
       leaveTypeId: row.leave_type_id,
       code: row.code,
       nameEn: row.name_en,
@@ -218,12 +218,12 @@ export async function GET(request: NextRequest) {
       pendingCount: row.pending_count,
       rejectedCount: row.rejected_count,
     })),
-    monthlyTrends: monthlyTrends.results.map((row) => ({
+    monthlyTrends: monthlyTrends.results.map((row: { month: string; request_count: number; total_days: number }) => ({
       month: row.month,
       requestCount: row.request_count,
       totalDays: row.total_days,
     })),
-    byTeam: teamBreakdown.results.map((row) => ({
+    byTeam: teamBreakdown.results.map((row: Record<string, unknown>) => ({
       teamId: row.team_id,
       teamName: row.team_name,
       color: row.color,

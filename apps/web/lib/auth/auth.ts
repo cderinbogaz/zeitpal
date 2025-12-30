@@ -23,19 +23,19 @@ function getAuth() {
   // so we need to catch that and fall back to the JWT-only setup
   try {
     const ctx = getCloudflareContext();
-    const env = (ctx?.env ?? process.env) as AuthEnv;
-    const authConfig = getAuthConfig(env);
+    const cfEnv = ctx?.env as CloudflareEnv | undefined;
 
-    if (ctx?.env?.DB) {
+    if (cfEnv?.DB) {
       // Edge runtime with D1 database - all providers available
+      // Access AUTH_SECRET from Cloudflare env (includes secrets from wrangler secret put)
+      const secret = cfEnv.AUTH_SECRET ?? process.env.AUTH_SECRET;
+      const env = cfEnv as unknown as AuthEnv;
+      const authConfig = getAuthConfig(env);
+
       return NextAuth({
         ...authConfig,
-        adapter: D1Adapter(ctx.env.DB),
-        secret:
-          env.AUTH_SECRET ??
-          env.NEXTAUTH_SECRET ??
-          process.env.AUTH_SECRET ??
-          process.env.NEXTAUTH_SECRET,
+        adapter: D1Adapter(cfEnv.DB),
+        secret,
       });
     }
   } catch {
@@ -51,8 +51,10 @@ function getAuth() {
   const oauthOnlyProviders = authConfig.providers.filter(
     (provider) => {
       // Provider can be a function or an object
-      const providerObj = typeof provider === 'function' ? provider : provider;
-      return providerObj.type !== 'email';
+      if (typeof provider === 'function') {
+        return true; // Keep function providers (they're typically OAuth)
+      }
+      return provider.type !== 'email';
     }
   );
 

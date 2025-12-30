@@ -9,7 +9,6 @@ import { ArrowLeft, Calendar, Clock, User } from 'lucide-react';
 import { Badge } from '@kit/ui/badge';
 import { Button } from '@kit/ui/button';
 
-import { createI18nServerInstance } from '~/lib/i18n/i18n.server';
 import { withI18n } from '~/lib/i18n/with-i18n';
 
 

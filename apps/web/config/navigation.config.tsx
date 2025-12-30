@@ -4,7 +4,6 @@ import {
   ClipboardList,
   FileText,
   Home,
-  Settings2,
   User,
   Users,
   Building2,

@@ -62,7 +62,7 @@ export async function getAlternates(): Promise<{
   languages['x-default'] = `${baseUrl}${getLocalizedPath(canonicalPath, DEFAULT_LOCALE)}`;
 
   // Canonical URL is the URL for the current locale
-  const canonical = languages[currentLocale] || languages[DEFAULT_LOCALE];
+  const canonical = languages[currentLocale] ?? languages[DEFAULT_LOCALE] ?? `${baseUrl}/`;
 
   return {
     canonical,
@@ -94,7 +94,7 @@ export function getAlternatesForPath(canonicalPath: string): {
   languages['x-default'] = `${baseUrl}${getLocalizedPath(canonicalPath, DEFAULT_LOCALE)}`;
 
   // Canonical URL is the default locale version
-  const canonical = languages[DEFAULT_LOCALE];
+  const canonical = languages[DEFAULT_LOCALE] ?? `${baseUrl}/`;
 
   return {
     canonical,

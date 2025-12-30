@@ -3,7 +3,6 @@ import {
   differenceInDays,
   eachDayOfInterval,
   format,
-  getDay,
   isAfter,
   isBefore,
   isSameDay,
@@ -11,7 +10,7 @@ import {
   parseISO,
 } from 'date-fns';
 
-import type { HalfDayType, LeaveBalance, PublicHoliday } from '~/lib/types';
+import type { HalfDayType, LeaveBalance } from '~/lib/types';
 
 /**
  * Leave Calculation Utilities

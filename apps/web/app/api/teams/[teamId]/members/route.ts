@@ -87,14 +87,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .bind(membership.organization_id, ...uniqueMemberIds)
     .all<{ user_id: string }>();
 
-  const validMemberIds = membersResult.results.map((row) => row.user_id);
+  const validMemberIds = membersResult.results.map((row: { user_id: string }) => row.user_id);
 
   if (validMemberIds.length === 0) {
     return badRequest('No valid members to add');
   }
 
   const now = new Date().toISOString();
-  const statements = validMemberIds.map((userId) =>
+  const statements = validMemberIds.map((userId: string) =>
     db
       .prepare(
         `INSERT OR IGNORE INTO team_members (

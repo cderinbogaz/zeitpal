@@ -55,7 +55,7 @@ const createApprovalRuleSchema = z.object({
  * GET /api/approval-rules
  * Get approval rules for the organization
  */
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   const session = await auth();
 
   if (!session?.user?.id) {
@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
     .bind(membership.organization_id)
     .all<ApprovalRuleRow & { approver_name: string | null; approver_email: string | null }>();
 
-  const rules = result.results.map((row) => ({
+  const rules = result.results.map((row: ApprovalRuleRow & { approver_name: string | null; approver_email: string | null }) => ({
     id: row.id,
     name: row.name,
     conditions: JSON.parse(row.conditions || '{}'),

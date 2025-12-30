@@ -179,7 +179,7 @@ export function TeamCalendar() {
   const teams = mockTeams;
 
   const monthStart = startOfMonth(currentDate);
-  const monthEnd = endOfMonth(currentDate);
+  const _monthEnd = endOfMonth(currentDate);
 
   // Get all days to display (including days from prev/next month to fill the grid)
   const startDay = getDay(monthStart);

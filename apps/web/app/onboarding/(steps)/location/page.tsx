@@ -28,7 +28,6 @@ import { useOnboarding } from '~/lib/contexts/onboarding-context';
 import {
   BUNDESLAND_NAMES,
   COUNTRIES,
-  type Bundesland,
   type CountryCode,
 } from '~/lib/types';
 

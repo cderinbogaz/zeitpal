@@ -62,7 +62,7 @@ interface NotificationSettingsProps {
   userId: string;
 }
 
-export function NotificationSettings({ userId }: NotificationSettingsProps) {
+export function NotificationSettings({ userId: _userId }: NotificationSettingsProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -109,7 +109,7 @@ export function NotificationSettings({ userId }: NotificationSettingsProps) {
       }
 
       toast.success('Notification preferences saved');
-    } catch (error) {
+    } catch {
       toast.error('Failed to save preferences');
     } finally {
       setIsSaving(false);

@@ -110,7 +110,7 @@ export async function GET(_: NextRequest) {
     .bind(membership.organization_id)
     .all<TeamAvailabilityRow>();
 
-  const members = result.results.map((row) => ({
+  const members = result.results.map((row: TeamAvailabilityRow) => ({
     id: row.id,
     role: row.role,
     user: {

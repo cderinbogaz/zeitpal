@@ -38,7 +38,6 @@ import {
   CTASection,
   FAQAccordion,
 } from '@kit/ui/marketing';
-import { Button } from '@kit/ui/button';
 import {
   AnimatedGradientText,
   AnimatedList,
@@ -99,7 +98,7 @@ function Home() {
     answer: string;
   }>;
 
-  const featureIcons: Record<string, React.ReactNode> = {
+  const _featureIcons: Record<string, React.ReactNode> = {
     leaveManagement: <FileText className="h-5 w-5" />,
     teamCalendar: <Calendar className="h-5 w-5" />,
     sickLeave: <Clock className="h-5 w-5" />,

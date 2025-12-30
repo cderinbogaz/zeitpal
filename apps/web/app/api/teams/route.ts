@@ -86,7 +86,7 @@ export async function GET(_: NextRequest) {
     .bind(membership.organization_id)
     .all<TeamRow>();
 
-  const teams = result.results.map((row) => ({
+  const teams = result.results.map((row: TeamRow) => ({
     id: row.id,
     name: row.name,
     description: row.description,
@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
       .bind(membership.organization_id, ...uniqueMemberIds)
       .all<{ user_id: string }>();
 
-    validMemberIds = membersResult.results.map((row) => row.user_id);
+    validMemberIds = membersResult.results.map((row: { user_id: string }) => row.user_id);
 
     if (validMemberIds.length !== uniqueMemberIds.length) {
       return badRequest('One or more members are not part of this organization');

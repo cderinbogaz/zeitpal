@@ -12,12 +12,9 @@ import {
   DropdownMenuTrigger,
 } from '@kit/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@kit/ui/avatar';
-import { cn } from '@kit/ui/utils';
 import { Trans } from '@kit/ui/trans';
 
-import { LogOut, Settings, User as UserIcon } from 'lucide-react';
-
-import featuresFlagConfig from '~/config/feature-flags.config';
+import { LogOut, Settings } from 'lucide-react';
 import pathsConfig from '~/config/paths.config';
 
 export function ProfileAccountDropdownContainer(props: {

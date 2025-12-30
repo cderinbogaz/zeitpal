@@ -20,7 +20,7 @@ import { getI18nSettings } from '~/lib/i18n/i18n.settings';
 
 import { ReactQueryProvider } from './react-query-provider';
 
-const captchaSiteKey = authConfig.captchaTokenSiteKey;
+const captchaSiteKey = (authConfig as { captchaTokenSiteKey?: string }).captchaTokenSiteKey;
 
 const CaptchaTokenSetter = dynamic(async () => {
   if (!captchaSiteKey) {

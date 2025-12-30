@@ -24,17 +24,15 @@ import {
   CardHeader,
   CardTitle,
 } from '@kit/ui/card';
-import { cn } from '@kit/ui/utils';
-
 import { useOnboarding } from '~/lib/contexts/onboarding-context';
-import { COUNTRIES, type CountryCode } from '~/lib/types';
+import { COUNTRIES } from '~/lib/types';
 import { getCsrfToken } from '~/lib/utils/csrf';
 
 import { OnboardingProgress } from '../../_components/onboarding-progress';
 
 export default function CompletePage() {
   const router = useRouter();
-  const { state, completeOnboarding, resetOnboarding } = useOnboarding();
+  const { state, completeOnboarding } = useOnboarding();
   const [isCreating, setIsCreating] = useState(false);
 
   const { data } = state;
@@ -156,7 +154,7 @@ export default function CompletePage() {
               <PartyPopper className="h-10 w-10 text-green-600 dark:text-green-400" />
             </div>
 
-            <CardTitle className="text-3xl">You're All Set!</CardTitle>
+            <CardTitle className="text-3xl">You&apos;re All Set!</CardTitle>
             <CardDescription className="mt-2 text-base">
               Your organization is ready to go
             </CardDescription>

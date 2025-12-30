@@ -160,10 +160,12 @@ export function ReportsDashboard() {
 
   useEffect(() => {
     fetchSummary();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [year]);
 
   useEffect(() => {
     fetchBalances();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [year, balancePage]);
 
   const handleExport = (type: 'balances' | 'requests' | 'summary') => {
@@ -172,7 +174,7 @@ export function ReportsDashboard() {
 
   const getMonthName = (monthStr: string) => {
     const [yearPart, monthPart] = monthStr.split('-');
-    const date = new Date(parseInt(yearPart), parseInt(monthPart) - 1, 1);
+    const date = new Date(parseInt(yearPart ?? '0'), parseInt(monthPart ?? '1') - 1, 1);
     return date.toLocaleDateString('en-US', { month: 'short' });
   };
 

@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     return validationError(parsed.error.flatten());
   }
 
-  const { email, role, teamIds } = parsed.data;
+  const { email, role, teamIds: _teamIds } = parsed.data;
   const { env } = getCloudflareContext();
   const db = env.DB;
 

@@ -63,7 +63,7 @@ export function OnboardingOptions() {
       {selectedOption === 'create' && (
         <div className="space-y-4 rounded-lg border bg-muted/30 p-4">
           <p className="text-sm">
-            You'll be the administrator of your new organization. You can invite
+            You&apos;ll be the administrator of your new organization. You can invite
             team members after setup.
           </p>
           <Button asChild className="w-full">

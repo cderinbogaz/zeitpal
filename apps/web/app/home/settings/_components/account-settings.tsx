@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -49,7 +49,7 @@ const updateProfileSchema = z.object({
 
 type UpdateProfileData = z.infer<typeof updateProfileSchema>;
 
-export function AccountSettings({ userId, user }: AccountSettingsProps) {
+export function AccountSettings({ userId: _userId, user }: AccountSettingsProps) {
   const supportsLanguageSelection = useSupportMultiLanguage();
   const [isUpdating, setIsUpdating] = useState(false);
 
@@ -74,7 +74,7 @@ export function AccountSettings({ userId, user }: AccountSettingsProps) {
       }
 
       toast.success('Profile updated successfully');
-    } catch (error) {
+    } catch {
       toast.error('Failed to update profile');
     } finally {
       setIsUpdating(false);

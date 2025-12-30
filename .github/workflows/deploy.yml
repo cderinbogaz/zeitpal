@@ -56,6 +56,15 @@ jobs:
           NEXT_PUBLIC_LANGUAGE_PRIORITY: ${{ vars.NEXT_PUBLIC_LANGUAGE_PRIORITY || 'application' }}
           NEXT_PUBLIC_ENABLE_PERSONAL_ACCOUNT_DELETION: ${{ vars.NEXT_PUBLIC_ENABLE_PERSONAL_ACCOUNT_DELETION || 'true' }}
 
+      - name: Verify Worker secrets
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          packageManager: pnpm
+          workingDirectory: apps/web
+          command: secret list
+
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:

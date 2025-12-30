@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import Script from 'next/script';
 
 import { Toaster } from '@kit/ui/sonner';
 import { cn } from '@kit/ui/utils';
@@ -21,7 +22,30 @@ export default async function RootLayout({
 
   return (
     <html lang={language} className={className}>
+      <head>
+        <Script
+          id="gtm-script"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+              new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+              j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+              'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+              })(window,document,'script','dataLayer','GTM-M8HR9P7Z');
+            `,
+          }}
+        />
+      </head>
       <body>
+        <noscript>
+          <iframe
+            src="https://www.googletagmanager.com/ns.html?id=GTM-M8HR9P7Z"
+            height="0"
+            width="0"
+            style={{ display: 'none', visibility: 'hidden' }}
+          />
+        </noscript>
         <RootProviders theme={theme} lang={language}>
           {children}
         </RootProviders>

@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { z } from 'zod';
 
-import { badRequest, success, validationError } from '~/lib/api/responses';
+import { success, validationError } from '~/lib/api/responses';
 
 
 const checkSlugSchema = z.object({

@@ -34,6 +34,7 @@ export function LogoCloud({
       <div className="flex flex-wrap items-center justify-center gap-8 md:gap-12">
         {logos.map((logo, index) => {
           const LogoImage = (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={logo.src}
               alt={logo.alt}

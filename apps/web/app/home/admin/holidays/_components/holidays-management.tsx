@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Building2,
-  Calendar,
   ChevronLeft,
   ChevronRight,
   Edit2,
@@ -130,6 +129,7 @@ export function HolidaysManagement() {
 
   useEffect(() => {
     fetchHolidays();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [year]);
 
   const openCreateDialog = () => {

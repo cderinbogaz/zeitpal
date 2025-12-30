@@ -12,7 +12,6 @@ import {
 
 import type {
   CountryCode,
-  MemberRole,
   OnboardingState,
   OnboardingStep,
 } from '~/lib/types';
@@ -210,6 +209,7 @@ export function useOnboarding() {
 
 // Utility hook to get country-specific minimum leave days
 export function useMinLeaveDays(countryCode: CountryCode | undefined) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { COUNTRIES } = require('~/lib/types') as typeof import('~/lib/types');
   const country = COUNTRIES.find((c) => c.code === countryCode);
   return country?.minLeaveDays ?? 20;

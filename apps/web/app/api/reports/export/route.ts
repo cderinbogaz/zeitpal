@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
 
     csvContent =
       'Name,Email,Role,Leave Type,Entitled,Carried Over,Adjustment,Used,Pending,Remaining\n';
-    result.results.forEach((row) => {
+    result.results.forEach((row: Record<string, unknown>) => {
       csvContent += `"${row.name || ''}","${row.email}","${row.role}","${row.leave_type || ''}",${row.entitled ?? ''},${row.carried_over ?? ''},${row.adjustment ?? ''},${row.used ?? ''},${row.pending ?? ''},${row.remaining ?? ''}\n`;
     });
 
@@ -126,7 +126,7 @@ export async function GET(request: NextRequest) {
 
     csvContent =
       'Name,Email,Leave Type,Start Date,End Date,Work Days,Status,Reason,Submitted At\n';
-    result.results.forEach((row) => {
+    result.results.forEach((row: Record<string, unknown>) => {
       const reason = String(row.reason || '').replace(/"/g, '""');
       csvContent += `"${row.name || ''}","${row.email}","${row.leave_type}","${row.start_date}","${row.end_date}",${row.work_days},"${row.status}","${reason}","${row.submitted_at}"\n`;
     });
@@ -162,7 +162,7 @@ export async function GET(request: NextRequest) {
 
     csvContent =
       'Leave Type,Total Requests,Total Days,Approved,Pending,Rejected\n';
-    usageByType.results.forEach((row) => {
+    usageByType.results.forEach((row: Record<string, unknown>) => {
       csvContent += `"${row.leave_type}",${row.request_count},${row.total_days},${row.approved},${row.pending},${row.rejected}\n`;
     });
 

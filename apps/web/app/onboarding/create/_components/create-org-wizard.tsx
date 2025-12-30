@@ -78,7 +78,7 @@ export function CreateOrgWizard() {
     mode: 'onChange',
   });
 
-  const watchName = form.watch('name');
+  const _watchName = form.watch('name');
 
   // Auto-generate slug from name
   const handleNameChange = (value: string) => {

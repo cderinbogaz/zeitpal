@@ -698,11 +698,7 @@ export function VisitorsChart() {
   );
 }
 
-export function PageViewsChart() {
-  const [activeChart, setActiveChart] =
-    useState<keyof typeof chartConfig>('desktop');
-
-  const chartData = [
+const pageViewsChartData = [
     { date: '2024-04-01', desktop: 222, mobile: 150 },
     { date: '2024-04-02', desktop: 97, mobile: 180 },
     { date: '2024-04-03', desktop: 167, mobile: 120 },
@@ -794,7 +790,11 @@ export function PageViewsChart() {
     { date: '2024-06-28', desktop: 149, mobile: 200 },
     { date: '2024-06-29', desktop: 103, mobile: 160 },
     { date: '2024-06-30', desktop: 446, mobile: 400 },
-  ];
+];
+
+export function PageViewsChart() {
+  const [activeChart, setActiveChart] =
+    useState<keyof typeof chartConfig>('desktop');
 
   const chartConfig = {
     views: {
@@ -812,8 +812,8 @@ export function PageViewsChart() {
 
   const total = useMemo(
     () => ({
-      desktop: chartData.reduce((acc, curr) => acc + curr.desktop, 0),
-      mobile: chartData.reduce((acc, curr) => acc + curr.mobile, 0),
+      desktop: pageViewsChartData.reduce((acc, curr) => acc + curr.desktop, 0),
+      mobile: pageViewsChartData.reduce((acc, curr) => acc + curr.mobile, 0),
     }),
     [],
   );
@@ -856,7 +856,7 @@ export function PageViewsChart() {
           config={chartConfig}
           className="aspect-auto h-64 w-full"
         >
-          <BarChart accessibilityLayer data={chartData}>
+          <BarChart accessibilityLayer data={pageViewsChartData}>
             <CartesianGrid vertical={false} />
             <XAxis
               dataKey="date"

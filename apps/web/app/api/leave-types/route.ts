@@ -10,7 +10,7 @@ import { badRequest, success, unauthorized } from '~/lib/api/responses';
  * GET /api/leave-types
  * Get available leave types for the user's organization
  */
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   const session = await auth();
 
   if (!session?.user?.id) {

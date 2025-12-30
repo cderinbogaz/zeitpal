@@ -110,7 +110,7 @@ export function TeamsManagement() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [teamName, setTeamName] = useState('');
   const [teamDescription, setTeamDescription] = useState('');
-  const [teamColor, setTeamColor] = useState(TEAM_COLORS[0].value);
+  const [teamColor, setTeamColor] = useState(TEAM_COLORS[0]?.value ?? '#3B82F6');
   const [isCreating, setIsCreating] = useState(false);
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -177,7 +177,7 @@ export function TeamsManagement() {
   const resetForm = () => {
     setTeamName('');
     setTeamDescription('');
-    setTeamColor(TEAM_COLORS[0].value);
+    setTeamColor(TEAM_COLORS[0]?.value ?? '#3B82F6');
     setSelectedMemberIds([]);
   };
 

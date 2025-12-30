@@ -178,7 +178,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return validationError(parsed.error.flatten());
   }
 
-  const { status, reason } = parsed.data;
+  const { status, reason: _reason } = parsed.data;
   const { env } = getCloudflareContext();
   const db = env.DB;
 

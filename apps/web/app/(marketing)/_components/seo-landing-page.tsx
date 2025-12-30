@@ -1,17 +1,10 @@
 import {
   ArrowRight,
   Check,
-  Calendar,
-  CheckCircle,
-  Clock,
-  FileText,
-  BarChart3,
-  Bell,
   Shield,
 } from 'lucide-react';
 
 import { Button } from '@kit/ui/button';
-import { Trans } from '@kit/ui/trans';
 import { AnimatedShinyText } from '@kit/ui/magicui';
 
 import { LocalizedLink } from '~/components/localized-link';
