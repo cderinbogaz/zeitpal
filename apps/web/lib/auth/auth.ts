@@ -17,61 +17,49 @@ type AuthEnv = Record<string, string | undefined>;
  * Note: Email providers (Mailgun) are only available when D1 is available,
  * as they require an adapter to store verification tokens.
  */
-function getAuth() {
-  // Try to get Cloudflare bindings (only available in edge runtime)
-  // The getCloudflareContext() function throws an error in Node.js runtime,
-  // so we need to catch that and fall back to the JWT-only setup
+async function getAuth() {
+  let cfEnv: CloudflareEnv | undefined;
+
+  // Try to get Cloudflare bindings (only available in edge runtime).
+  // The async mode works in more contexts than the sync one.
   try {
-    const ctx = getCloudflareContext();
-    const cfEnv = ctx?.env as CloudflareEnv | undefined;
-
-    if (cfEnv?.DB) {
-      // Edge runtime with D1 database - all providers available
-      // Access AUTH_SECRET from Cloudflare env (includes secrets from wrangler secret put)
-      const secret = cfEnv.AUTH_SECRET ?? process.env.AUTH_SECRET;
-      const env = cfEnv as unknown as AuthEnv;
-      const authConfig = getAuthConfig(env);
-
-      return NextAuth({
-        ...authConfig,
-        adapter: D1Adapter(cfEnv.DB),
-        secret,
-      });
-    }
+    const ctx = await getCloudflareContext({ async: true });
+    cfEnv = ctx?.env as CloudflareEnv | undefined;
   } catch {
-    // Not in edge runtime - fall through to Node.js setup
+    // Not in edge runtime - fall back to process.env
   }
 
-  const env = process.env as AuthEnv;
+  const env = (cfEnv ?? process.env) as AuthEnv;
   const authConfig = getAuthConfig(env);
+  const secret =
+    env.AUTH_SECRET ??
+    env.NEXTAUTH_SECRET ??
+    process.env.AUTH_SECRET ??
+    process.env.NEXTAUTH_SECRET;
+  const db = cfEnv?.DB;
+  const hasD1 = !!db;
 
-  // Node.js runtime (development) - no D1 adapter
-  // Sessions are stored in JWT only
-  // Filter out email providers since they require an adapter
-  const oauthOnlyProviders = authConfig.providers.filter(
-    (provider) => {
-      // Provider can be a function or an object
-      if (typeof provider === 'function') {
-        return true; // Keep function providers (they're typically OAuth)
-      }
-      return provider.type !== 'email';
-    }
-  );
+  // Filter out email providers unless a D1 adapter is available.
+  const providers = hasD1
+    ? authConfig.providers
+    : authConfig.providers.filter((provider) => {
+        if (typeof provider === 'function') {
+          return true; // Keep function providers (they're typically OAuth)
+        }
+        return provider.type !== 'email';
+      });
 
   return NextAuth({
     ...authConfig,
-    providers: oauthOnlyProviders,
-    secret:
-      env.AUTH_SECRET ??
-      env.NEXTAUTH_SECRET ??
-      process.env.AUTH_SECRET ??
-      process.env.NEXTAUTH_SECRET,
+    providers,
+    ...(db ? { adapter: D1Adapter(db) } : {}),
+    secret,
   });
 }
 
 // Export auth functions that initialize per-request
 export async function auth() {
-  const { auth } = getAuth();
+  const { auth } = await getAuth();
   return auth();
 }
 
@@ -79,18 +67,18 @@ export async function signIn(
   provider?: string,
   options?: { redirectTo?: string; redirect?: boolean }
 ) {
-  const { signIn } = getAuth();
+  const { signIn } = await getAuth();
   return signIn(provider, options);
 }
 
 export async function signOut(options?: { redirectTo?: string }) {
-  const { signOut } = getAuth();
+  const { signOut } = await getAuth();
   return signOut(options);
 }
 
 // Export handlers for API route
-export function getHandlers() {
-  const { handlers } = getAuth();
+export async function getHandlers() {
+  const { handlers } = await getAuth();
   return handlers;
 }
 

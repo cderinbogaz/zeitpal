@@ -25,13 +25,13 @@ function toMutableResponse(response: Response) {
 
 // Dynamic handlers that initialize Auth.js with D1 adapter per-request
 export async function GET(request: NextRequest) {
-  const { GET } = getHandlers();
+  const { GET } = await getHandlers();
   const response = await GET(request);
   return toMutableResponse(response);
 }
 
 export async function POST(request: NextRequest) {
-  const { POST } = getHandlers();
+  const { POST } = await getHandlers();
   const response = await POST(request);
   return toMutableResponse(response);
 }
