@@ -21,9 +21,9 @@ async function getAuth() {
   let cfEnv: CloudflareEnv | undefined;
 
   // Try to get Cloudflare bindings (only available in edge runtime).
-  // The async mode works in more contexts than the sync one.
+  // Use sync version which works reliably in API routes (same as middleware).
   try {
-    const ctx = await getCloudflareContext({ async: true });
+    const ctx = getCloudflareContext();
     cfEnv = ctx?.env as CloudflareEnv | undefined;
 
     // Debug logging - remove after fixing
