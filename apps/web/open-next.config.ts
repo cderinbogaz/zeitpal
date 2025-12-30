@@ -11,12 +11,19 @@ const config: OpenNextConfig = {
       queue: "dummy",
     },
   },
+
+  // Node.js external modules that should be available at runtime
+  edgeExternals: ["node:crypto"],
+
   middleware: {
     external: true,
     override: {
       wrapper: "cloudflare-edge",
       converter: "edge",
       proxyExternalRequest: "fetch",
+      incrementalCache: "dummy",
+      tagCache: "dummy",
+      queue: "dummy",
     },
   },
 };
