@@ -13,6 +13,14 @@ import {
   validationError,
 } from '~/lib/api/responses';
 
+interface TeamMemberRow {
+  user_id: string;
+  name: string | null;
+  email: string;
+  image: string | null;
+  role: string;
+  is_lead: number;
+}
 
 const addMembersSchema = z.object({
   memberIds: z.array(z.string().min(1)).min(1, 'Select at least one member'),
@@ -20,6 +28,83 @@ const addMembersSchema = z.object({
 
 interface RouteParams {
   params: Promise<{ teamId: string }>;
+}
+
+/**
+ * GET /api/teams/[teamId]/members
+ * Get members of a specific team
+ */
+export async function GET(_request: NextRequest, { params }: RouteParams) {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    return unauthorized();
+  }
+
+  const { teamId } = await params;
+  const { env } = getCloudflareContext();
+  const db = env.DB;
+
+  // Check user is part of an organization
+  const membership = await db
+    .prepare(
+      `SELECT organization_id
+       FROM organization_members
+       WHERE user_id = ? AND status = 'active'
+       LIMIT 1`
+    )
+    .bind(session.user.id)
+    .first<{ organization_id: string }>();
+
+  if (!membership) {
+    return badRequest('You are not a member of any organization');
+  }
+
+  // Verify team exists and belongs to user's organization
+  const team = await db
+    .prepare(
+      `SELECT id FROM teams WHERE id = ? AND organization_id = ? LIMIT 1`
+    )
+    .bind(teamId, membership.organization_id)
+    .first<{ id: string }>();
+
+  if (!team) {
+    return notFound('Team');
+  }
+
+  // Get team members with user details
+  const result = await db
+    .prepare(
+      `SELECT
+        u.id as user_id,
+        u.name,
+        u.email,
+        u.image,
+        om.role,
+        tm.is_lead
+      FROM team_members tm
+      INNER JOIN users u ON u.id = tm.user_id
+      INNER JOIN organization_members om ON om.user_id = tm.user_id AND om.organization_id = ?
+      WHERE tm.team_id = ?
+      ORDER BY u.name, u.email`
+    )
+    .bind(membership.organization_id, teamId)
+    .all<TeamMemberRow>();
+
+  const members = result.results.map((row: TeamMemberRow) => ({
+    id: row.user_id,
+    role: row.role,
+    status: 'active',
+    isLead: row.is_lead === 1,
+    user: {
+      id: row.user_id,
+      name: row.name,
+      email: row.email,
+      avatarUrl: row.image,
+    },
+  }));
+
+  return success(members);
 }
 
 /**

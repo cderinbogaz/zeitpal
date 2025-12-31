@@ -66,10 +66,47 @@ async function getAuth() {
         return provider.type !== 'email';
       });
 
+  // Wrap adapter with debug logging for verification tokens
+  const baseAdapter = db ? D1Adapter(db) : undefined;
+  const debugAdapter = baseAdapter
+    ? {
+        ...baseAdapter,
+        async useVerificationToken(params: { identifier: string; token: string }) {
+          console.log('[Auth Debug] useVerificationToken called:', {
+            identifier: params.identifier,
+            tokenLength: params.token?.length,
+            tokenPrefix: params.token?.substring(0, 10),
+          });
+          try {
+            const result = await baseAdapter.useVerificationToken?.(params);
+            console.log('[Auth Debug] useVerificationToken result:', {
+              found: !!result,
+              expires: result?.expires,
+            });
+            return result ?? null;
+          } catch (error) {
+            console.error('[Auth Debug] useVerificationToken error:', error);
+            throw error;
+          }
+        },
+        async createVerificationToken(data: { identifier: string; token: string; expires: Date }) {
+          console.log('[Auth Debug] createVerificationToken:', {
+            identifier: data.identifier,
+            tokenLength: data.token?.length,
+            tokenPrefix: data.token?.substring(0, 10),
+            expires: data.expires,
+          });
+          const result = await baseAdapter.createVerificationToken?.(data);
+          console.log('[Auth Debug] createVerificationToken result:', result);
+          return result;
+        },
+      }
+    : undefined;
+
   return NextAuth({
     ...authConfig,
     providers,
-    ...(db ? { adapter: D1Adapter(db) } : {}),
+    ...(debugAdapter ? { adapter: debugAdapter } : {}),
     secret,
   });
 }

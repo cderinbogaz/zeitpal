@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-import { MoreHorizontal, Plus, Trash2, UserMinus, Users } from 'lucide-react';
+import { MoreHorizontal, Plus, Trash2, UserMinus, UserPlus, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
 import {
@@ -38,7 +38,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@kit/ui/dropdown-menu';
 import { Input } from '@kit/ui/input';
@@ -562,48 +561,33 @@ export function TeamsManagement() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {teams.map((team) => (
             <Card key={team.id}>
-              <CardHeader className="pb-2">
+              <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-2">
-                  <div>
+                  <div className="flex-1 min-w-0">
                     <CardTitle className="flex items-center gap-2 text-lg">
                       <span
-                        className="h-2.5 w-2.5 rounded-full"
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
                         style={{ backgroundColor: team.color }}
                       />
-                      {team.name}
+                      <span className="truncate">{team.name}</span>
                     </CardTitle>
                     {team.description ? (
-                      <CardDescription>{team.description}</CardDescription>
+                      <CardDescription className="mt-1 line-clamp-2">{team.description}</CardDescription>
                     ) : null}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 shrink-0">
                     <Badge variant="secondary">
                       <Users className="mr-1 h-3 w-3" />
                       {team.memberCount}
                     </Badge>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
                           <MoreHorizontal className="h-4 w-4" />
                           <span className="sr-only">Actions</span>
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openAddMembers(team)}>
-                          <Plus className="mr-2 h-4 w-4" />
-                          <Trans
-                            i18nKey="admin:teams.actions.addMembers"
-                            defaults="Add Members"
-                          />
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => openManageMembers(team)}>
-                          <Users className="mr-2 h-4 w-4" />
-                          <Trans
-                            i18nKey="admin:teams.actions.manageMembers"
-                            defaults="Manage Members"
-                          />
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className="text-destructive"
                           onClick={() => setDeletingTeam(team)}
@@ -619,6 +603,34 @@ export function TeamsManagement() {
                   </div>
                 </div>
               </CardHeader>
+              <CardContent className="pt-0">
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => openAddMembers(team)}
+                  >
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    <Trans
+                      i18nKey="admin:teams.actions.addMembers"
+                      defaults="Add Members"
+                    />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => openManageMembers(team)}
+                  >
+                    <Users className="mr-2 h-4 w-4" />
+                    <Trans
+                      i18nKey="admin:teams.actions.manageMembers"
+                      defaults="Manage"
+                    />
+                  </Button>
+                </div>
+              </CardContent>
             </Card>
           ))}
         </div>
@@ -735,24 +747,24 @@ export function TeamsManagement() {
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              <Trans
-                i18nKey="admin:teams.manageMembersDialog.title"
-                defaults="Manage {teamName} Members"
-                values={{ teamName: manageMembersTeam?.name || '' }}
+            <DialogTitle className="flex items-center gap-2">
+              <span
+                className="h-3 w-3 rounded-full"
+                style={{ backgroundColor: manageMembersTeam?.color }}
               />
+              {manageMembersTeam?.name}
             </DialogTitle>
             <DialogDescription>
               <Trans
                 i18nKey="admin:teams.manageMembersDialog.description"
-                defaults="View and remove members from this team."
+                defaults="View and manage team members."
               />
             </DialogDescription>
           </DialogHeader>
 
-          <div className="max-h-64 overflow-y-auto">
+          <div className="max-h-64 overflow-y-auto rounded-md border">
             {isLoadingTeamMembers ? (
-              <div className="space-y-2 p-2">
+              <div className="space-y-2 p-3">
                 {[...Array(3)].map((_, index) => (
                   <div key={index} className="flex items-center gap-2">
                     <Skeleton className="h-8 w-8 rounded-full" />
@@ -761,21 +773,38 @@ export function TeamsManagement() {
                 ))}
               </div>
             ) : teamMembers.length === 0 ? (
-              <p className="text-muted-foreground py-4 text-center text-sm">
-                <Trans
-                  i18nKey="admin:teams.manageMembersDialog.noMembers"
-                  defaults="No members in this team yet."
-                />
-              </p>
+              <div className="py-8 text-center">
+                <Users className="mx-auto h-8 w-8 text-muted-foreground/50" />
+                <p className="text-muted-foreground mt-2 text-sm">
+                  <Trans
+                    i18nKey="admin:teams.manageMembersDialog.noMembers"
+                    defaults="No members in this team yet."
+                  />
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                  onClick={() => {
+                    setManageMembersTeam(null);
+                    if (manageMembersTeam) {
+                      openAddMembers(manageMembersTeam);
+                    }
+                  }}
+                >
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Add Members
+                </Button>
+              </div>
             ) : (
-              <div className="space-y-1">
+              <div className="divide-y">
                 {teamMembers.map((member) => (
                   <div
                     key={member.user.id}
-                    className="flex items-center justify-between rounded-md p-2 hover:bg-muted"
+                    className="flex items-center justify-between p-3"
                   >
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-medium">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-sm font-medium">
                         {(member.user.name || member.user.email)
                           .charAt(0)
                           .toUpperCase()}
@@ -792,7 +821,7 @@ export function TeamsManagement() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="text-destructive hover:text-destructive"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
                       onClick={() =>
                         setRemovingMember({
                           memberId: member.user.id,
@@ -811,7 +840,21 @@ export function TeamsManagement() {
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-row gap-2 sm:justify-between">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (manageMembersTeam) {
+                  const team = manageMembersTeam;
+                  setManageMembersTeam(null);
+                  openAddMembers(team);
+                }
+              }}
+            >
+              <UserPlus className="mr-2 h-4 w-4" />
+              Add Members
+            </Button>
             <Button
               variant="outline"
               onClick={() => setManageMembersTeam(null)}

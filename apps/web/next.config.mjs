@@ -1,3 +1,7 @@
+import { initOpenNextCloudflareForDev } from '@opennextjs/cloudflare';
+
+initOpenNextCloudflareForDev();
+
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const ENABLE_REACT_COMPILER = process.env.ENABLE_REACT_COMPILER === 'true';
 const ENABLE_TURBO = !IS_PRODUCTION;
