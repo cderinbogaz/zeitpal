@@ -10,7 +10,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "SEE LICENSE FILE",
   "devDependencies": {
     "@playwright/test": "^1.56.0",
     "@types/node": "^24.7.1",
