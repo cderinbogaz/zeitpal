@@ -120,9 +120,15 @@ export function NotificationSettings({ userId: _userId }: NotificationSettingsPr
     return <NotificationSettingsSkeleton />;
   }
 
+  const notificationItemClassName =
+    'flex flex-row items-center justify-between gap-x-4 rounded-lg border p-4';
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form
+        onSubmit={form.handleSubmit(onSubmit)}
+        className="flex flex-1 flex-col gap-4"
+      >
         <Card>
           <CardHeader>
             <CardTitle>
@@ -182,8 +188,8 @@ export function NotificationSettings({ userId: _userId }: NotificationSettingsPr
                 control={form.control}
                 name="emailOnApproval"
                 render={({ field }) => (
-                  <FormItem className="flex items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
+                  <FormItem className={notificationItemClassName}>
+                    <div className="flex-1 space-y-0.5 text-left">
                       <FormLabel className="text-base">
                         <Trans i18nKey="account:notifications.onApproval" defaults="Request approved" />
                       </FormLabel>
@@ -205,8 +211,8 @@ export function NotificationSettings({ userId: _userId }: NotificationSettingsPr
                 control={form.control}
                 name="emailOnRejection"
                 render={({ field }) => (
-                  <FormItem className="flex items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
+                  <FormItem className={notificationItemClassName}>
+                    <div className="flex-1 space-y-0.5 text-left">
                       <FormLabel className="text-base">
                         <Trans i18nKey="account:notifications.onRejection" defaults="Request rejected" />
                       </FormLabel>
@@ -228,8 +234,8 @@ export function NotificationSettings({ userId: _userId }: NotificationSettingsPr
                 control={form.control}
                 name="emailOnRequestSubmitted"
                 render={({ field }) => (
-                  <FormItem className="flex items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
+                  <FormItem className={notificationItemClassName}>
+                    <div className="flex-1 space-y-0.5 text-left">
                       <FormLabel className="text-base">
                         <Trans i18nKey="account:notifications.onSubmitted" defaults="Request confirmation" />
                       </FormLabel>
@@ -251,8 +257,8 @@ export function NotificationSettings({ userId: _userId }: NotificationSettingsPr
                 control={form.control}
                 name="emailOnUpcomingLeave"
                 render={({ field }) => (
-                  <FormItem className="flex items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
+                  <FormItem className={notificationItemClassName}>
+                    <div className="flex-1 space-y-0.5 text-left">
                       <FormLabel className="text-base">
                         <Trans i18nKey="account:notifications.onUpcoming" defaults="Upcoming leave reminder" />
                       </FormLabel>
@@ -283,8 +289,8 @@ export function NotificationSettings({ userId: _userId }: NotificationSettingsPr
                 control={form.control}
                 name="emailOnApprovalNeeded"
                 render={({ field }) => (
-                  <FormItem className="flex items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
+                  <FormItem className={notificationItemClassName}>
+                    <div className="flex-1 space-y-0.5 text-left">
                       <FormLabel className="text-base">
                         <Trans i18nKey="account:notifications.onApprovalNeeded" defaults="Pending approvals" />
                       </FormLabel>
@@ -315,8 +321,8 @@ export function NotificationSettings({ userId: _userId }: NotificationSettingsPr
                 control={form.control}
                 name="emailOnTeamAbsence"
                 render={({ field }) => (
-                  <FormItem className="flex items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
+                  <FormItem className={notificationItemClassName}>
+                    <div className="flex-1 space-y-0.5 text-left">
                       <FormLabel className="text-base">
                         <Trans i18nKey="account:notifications.onTeamAbsence" defaults="Team absences" />
                       </FormLabel>
@@ -337,7 +343,7 @@ export function NotificationSettings({ userId: _userId }: NotificationSettingsPr
           </CardContent>
         </Card>
 
-        <div className="flex justify-end">
+        <div className="mt-auto flex justify-end">
           <Button type="submit" disabled={isSaving}>
             {isSaving ? (
               <Trans i18nKey="account:notifications.saving" defaults="Saving..." />

@@ -61,7 +61,7 @@ describe('POST /api/onboarding/complete', () => {
     // Default mock for getCloudflareContext
     vi.mocked(getCloudflareContext).mockReturnValue({
       env: { DB: mockDb },
-      ctx: {},
+      ctx: { waitUntil: vi.fn() },
     } as ReturnType<typeof getCloudflareContext>);
 
     // Default mock for leave types query
@@ -244,6 +244,22 @@ describe('POST /api/onboarding/complete', () => {
         organizationSlug: 'test-org',
         country: 'AT', // Austria
         region: 'Vienna',
+      });
+
+      const response = await POST(request);
+      const json = await response.json();
+
+      expect(response.status).toBe(201);
+      expect(json.data.success).toBe(true);
+    });
+
+    it('should complete onboarding when user exists with the same email', async () => {
+      mockDb.mockStatement.first.mockResolvedValue({ id: 'existing-user' });
+
+      const request = createMockRequest({
+        organizationName: 'Test Org',
+        organizationSlug: 'test-org',
+        country: 'DE',
       });
 
       const response = await POST(request);

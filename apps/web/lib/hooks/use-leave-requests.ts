@@ -55,6 +55,7 @@ interface UseLeaveRequestsOptions {
 }
 
 interface CreateLeaveRequestInput {
+  userId?: string;
   leaveTypeId: string;
   startDate: string;
   endDate: string;

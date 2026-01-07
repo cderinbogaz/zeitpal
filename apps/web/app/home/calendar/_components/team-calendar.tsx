@@ -5,7 +5,6 @@ import { useMemo, useState } from 'react';
 import {
   addMonths,
   eachDayOfInterval,
-  endOfMonth,
   format,
   getDay,
   isSameMonth,
@@ -32,26 +31,33 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@kit/ui/tooltip';
 import { Trans } from '@kit/ui/trans';
 import { cn } from '@kit/ui/utils';
 
-import { useHolidays } from '~/lib/hooks/use-holidays';
+import { useCalendarEvents, useHolidays, useTeams } from '~/lib/hooks';
 
-// TODO: Replace with React Query
-const mockTeams = [
-  { id: 'all', name: 'All Teams' },
-];
-
-const mockAbsences: {
+interface CalendarAbsence {
   id: string;
   user: { id: string; name: string; initials: string; image: string | null };
   leaveType: { code: string; color: string };
   startDate: string;
   endDate: string;
-}[] = [];
+}
 
 interface CalendarDayProps {
   date: Date;
   currentMonth: Date;
   holidays: { date: string; name: string }[];
-  absences: typeof mockAbsences;
+  absences: CalendarAbsence[];
+}
+
+function getInitials(name: string) {
+  const initials = name
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+
+  return initials || '?';
 }
 
 function CalendarDay({ date, currentMonth, holidays, absences }: CalendarDayProps) {
@@ -163,6 +169,7 @@ export function TeamCalendar() {
 
   const currentYear = currentDate.getFullYear();
   const { data: holidaysData, isLoading: isLoadingHolidays } = useHolidays({ year: currentYear });
+  const { data: teamsData = [], isLoading: isLoadingTeams } = useTeams();
 
   // Transform holidays to the format expected by CalendarDay
   const holidays = useMemo(() => {
@@ -173,28 +180,60 @@ export function TeamCalendar() {
     }));
   }, [holidaysData]);
 
-  // TODO: Replace with React Query for absences and teams
-  const isLoading = isLoadingHolidays;
-  const absences = mockAbsences;
-  const teams = mockTeams;
-
   const monthStart = startOfMonth(currentDate);
-  const _monthEnd = endOfMonth(currentDate);
 
   // Get all days to display (including days from prev/next month to fill the grid)
   const startDay = getDay(monthStart);
   const adjustedStart = startDay === 0 ? 6 : startDay - 1; // Adjust for Monday start
   const calendarStart = new Date(monthStart);
   calendarStart.setDate(calendarStart.getDate() - adjustedStart);
+  const calendarEnd = new Date(calendarStart.getTime() + 41 * 24 * 60 * 60 * 1000); // 6 weeks
+
+  const { data: absencesData = [], isLoading: isLoadingAbsences } = useCalendarEvents({
+    startDate: format(calendarStart, 'yyyy-MM-dd'),
+    endDate: format(calendarEnd, 'yyyy-MM-dd'),
+    teamId: selectedTeam === 'all' ? undefined : selectedTeam,
+  });
+
+  const absences = useMemo(() => {
+    return absencesData.map((absence) => {
+      const displayName = absence.user.name ?? absence.user.email ?? 'Unknown';
+
+      return {
+        id: absence.id,
+        startDate: absence.startDate,
+        endDate: absence.endDate,
+        leaveType: absence.leaveType,
+        user: {
+          id: absence.user.id,
+          name: displayName,
+          initials: getInitials(displayName),
+          image: absence.user.avatarUrl,
+        },
+      };
+    });
+  }, [absencesData]);
+
+  const teams = useMemo(() => {
+    return [
+      { id: 'all', name: 'All Teams' },
+      ...teamsData.map((team) => ({
+        id: team.id,
+        name: team.name,
+      })),
+    ];
+  }, [teamsData]);
 
   const days = eachDayOfInterval({
     start: calendarStart,
-    end: new Date(calendarStart.getTime() + 41 * 24 * 60 * 60 * 1000), // 6 weeks
+    end: calendarEnd,
   });
 
   const goToPreviousMonth = () => setCurrentDate(subMonths(currentDate, 1));
   const goToNextMonth = () => setCurrentDate(addMonths(currentDate, 1));
   const goToToday = () => setCurrentDate(new Date());
+
+  const isLoading = isLoadingHolidays || isLoadingAbsences || isLoadingTeams;
 
   if (isLoading) {
     return (

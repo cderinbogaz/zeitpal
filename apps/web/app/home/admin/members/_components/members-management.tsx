@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { format } from 'date-fns';
 import { Mail, MoreHorizontal, Plus, Shield, User, UserMinus } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@kit/ui/avatar';
 import { Badge } from '@kit/ui/badge';
@@ -55,6 +56,7 @@ import {
 import { Trans } from '@kit/ui/trans';
 
 import type { OrganizationRole, MemberStatus } from '~/lib/types';
+import { useInviteMember } from '~/lib/hooks/use-members';
 
 // TODO: Replace with React Query
 const mockMembers: {
@@ -94,7 +96,8 @@ export function MembersManagement() {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<OrganizationRole>('member');
-  const [isInviting, setIsInviting] = useState(false);
+  const inviteMember = useInviteMember();
+  const isInviting = inviteMember.isPending;
 
   // Member removal confirmation state
   const [removingMember, setRemovingMember] = useState<{
@@ -111,16 +114,21 @@ export function MembersManagement() {
   const [isCancellingInvite, setIsCancellingInvite] = useState(false);
 
   const handleInvite = async () => {
-    setIsInviting(true);
     try {
-      // TODO: Implement API call
-      console.log('Inviting:', { email: inviteEmail, role: inviteRole });
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const email = inviteEmail.trim();
+      if (!email) {
+        return;
+      }
+
+      await inviteMember.mutateAsync({ email, role: inviteRole });
+      toast.success(<Trans i18nKey="admin:members.inviteSent" />);
       setInviteDialogOpen(false);
       setInviteEmail('');
       setInviteRole('member');
-    } finally {
-      setIsInviting(false);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to invite member'
+      );
     }
   };
 

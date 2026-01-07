@@ -32,6 +32,12 @@ export {
 // Holidays
 export { useHolidays } from './use-holidays';
 
+// Calendar
+export { useCalendarEvents } from './use-calendar-events';
+
+// Teams
+export { useTeams } from './use-teams';
+
 // Members
 export {
   useMembers,

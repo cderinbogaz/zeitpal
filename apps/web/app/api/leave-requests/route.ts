@@ -7,16 +7,22 @@ import { auth } from '~/lib/auth/auth';
 import {
   badRequest,
   created,
+  forbidden,
   success,
   unauthorized,
   validationError,
 } from '~/lib/api/responses';
 import { calculateWorkDays } from '~/lib/utils/leave-calculations';
-import { sendLeaveRequestSubmittedEmail } from '~/lib/emails';
+import {
+  sendLeaveRequestApprovedEmail,
+  sendLeaveRequestSubmittedEmail,
+  sendTeamAbsenceNotificationEmail,
+} from '~/lib/emails';
 
 
 // Validation schema for creating a leave request
 const createLeaveRequestSchema = z.object({
+  userId: z.string().min(1).optional(),
   leaveTypeId: z.string().min(1, 'Leave type is required'),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format'),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format'),
@@ -151,7 +157,15 @@ export async function POST(request: NextRequest) {
     return validationError(parsed.error.flatten());
   }
 
-  const { leaveTypeId, startDate, endDate, startHalfDay, endHalfDay, reason } =
+  const {
+    userId,
+    leaveTypeId,
+    startDate,
+    endDate,
+    startHalfDay,
+    endHalfDay,
+    reason,
+  } =
     parsed.data;
 
   const { env, ctx } = getCloudflareContext();
@@ -160,17 +174,39 @@ export async function POST(request: NextRequest) {
   // Get user's organization
   const member = await db
     .prepare(
-      `SELECT organization_id FROM organization_members
+      `SELECT organization_id, role FROM organization_members
        WHERE user_id = ? AND status = 'active' LIMIT 1`
     )
     .bind(session.user.id)
-    .first<{ organization_id: string }>();
+    .first<{ organization_id: string; role: string }>();
 
   if (!member) {
     return badRequest('User is not a member of any organization');
   }
 
   const organizationId = member.organization_id;
+  const targetUserId = userId ?? session.user.id;
+  const isAdminCreatingForOther =
+    targetUserId !== session.user.id && member.role === 'admin';
+
+  if (targetUserId !== session.user.id && member.role !== 'admin') {
+    return forbidden('Only admins can create leave requests for other members');
+  }
+
+  if (targetUserId !== session.user.id) {
+    const targetMember = await db
+      .prepare(
+        `SELECT id FROM organization_members
+         WHERE user_id = ? AND organization_id = ? AND status = 'active'
+         LIMIT 1`
+      )
+      .bind(targetUserId, organizationId)
+      .first();
+
+    if (!targetMember) {
+      return badRequest('User is not a member of this organization');
+    }
+  }
 
   // Get organization's bundesland for holiday calculation
   const org = await db
@@ -217,7 +253,7 @@ export async function POST(request: NextRequest) {
          OR (start_date >= ? AND end_date <= ?))`
     )
     .bind(
-      session.user.id,
+      targetUserId,
       endDate,
       startDate,
       startDate,
@@ -234,47 +270,79 @@ export async function POST(request: NextRequest) {
   // Create the leave request
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
+  const status = isAdminCreatingForOther ? 'approved' : 'pending';
 
-  await db
-    .prepare(
-      `INSERT INTO leave_requests (
-        id, organization_id, user_id, leave_type_id,
-        start_date, end_date, start_half_day, end_half_day,
-        work_days, reason, status, submitted_at, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)`
-    )
-    .bind(
-      id,
-      organizationId,
-      session.user.id,
-      leaveTypeId,
-      startDate,
-      endDate,
-      startHalfDay || null,
-      endHalfDay || null,
-      workDays,
-      reason || null,
-      now,
-      now,
-      now
-    )
-    .run();
+  const batchStatements = [
+    db
+      .prepare(
+        `INSERT INTO leave_requests (
+          id, organization_id, user_id, leave_type_id,
+          start_date, end_date, start_half_day, end_half_day,
+          work_days, reason, status, submitted_at, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        id,
+        organizationId,
+        targetUserId,
+        leaveTypeId,
+        startDate,
+        endDate,
+        startHalfDay || null,
+        endHalfDay || null,
+        workDays,
+        reason || null,
+        status,
+        now,
+        now,
+        now
+      ),
+  ];
 
-  // Update leave balance (pending)
-  await db
-    .prepare(
-      `UPDATE leave_balances
-       SET pending = pending + ?, updated_at = ?
-       WHERE user_id = ? AND leave_type_id = ? AND year = ?`
-    )
-    .bind(
-      workDays,
-      now,
-      session.user.id,
-      leaveTypeId,
-      new Date(startDate).getFullYear()
-    )
-    .run();
+  if (isAdminCreatingForOther) {
+    const approvalId = crypto.randomUUID();
+
+    batchStatements.push(
+      db
+        .prepare(
+          `INSERT INTO leave_approvals (
+            id, leave_request_id, approver_id, decision, comment, decided_at, created_at
+          ) VALUES (?, ?, ?, 'approved', ?, ?, ?)`
+        )
+        .bind(approvalId, id, session.user.id, null, now, now),
+      db
+        .prepare(
+          `UPDATE leave_balances
+           SET used = used + ?, updated_at = ?
+           WHERE user_id = ? AND leave_type_id = ? AND year = ?`
+        )
+        .bind(
+          workDays,
+          now,
+          targetUserId,
+          leaveTypeId,
+          new Date(startDate).getFullYear()
+        )
+    );
+  } else {
+    batchStatements.push(
+      db
+        .prepare(
+          `UPDATE leave_balances
+           SET pending = pending + ?, updated_at = ?
+           WHERE user_id = ? AND leave_type_id = ? AND year = ?`
+        )
+        .bind(
+          workDays,
+          now,
+          targetUserId,
+          leaveTypeId,
+          new Date(startDate).getFullYear()
+        )
+    );
+  }
+
+  await db.batch(batchStatements);
 
   // Get leave type details for email
   const leaveType = await db
@@ -285,41 +353,97 @@ export async function POST(request: NextRequest) {
   // Get user's name for email
   const user = await db
     .prepare('SELECT name, email FROM users WHERE id = ?')
-    .bind(session.user.id)
+    .bind(targetUserId)
     .first<{ name: string; email: string }>();
 
-  // Get all admins and managers to notify about this request
-  const approvers = await db
-    .prepare(
-      `SELECT u.email, u.name FROM organization_members om
-       JOIN users u ON om.user_id = u.id
-       WHERE om.organization_id = ?
-       AND om.status = 'active'
-       AND om.role IN ('admin', 'manager')
-       AND om.user_id != ?`
-    )
-    .bind(organizationId, session.user.id)
-    .all<{ email: string; name: string }>();
+  if (isAdminCreatingForOther) {
+    const approver = await db
+      .prepare('SELECT name FROM users WHERE id = ?')
+      .bind(session.user.id)
+      .first<{ name: string }>();
 
-  // Send notification emails to all approvers using waitUntil
-  if (user && leaveType && approvers.results.length > 0) {
-    const emailPromises = approvers.results.map((approver: { email: string; name: string }) =>
-      sendLeaveRequestSubmittedEmail(env, approver.email, {
+    if (user && leaveType && approver) {
+      const approvalEmailPromise = sendLeaveRequestApprovedEmail(env, {
         employeeName: user.name || user.email,
         employeeEmail: user.email,
         leaveType: leaveType.name_en,
         startDate,
         endDate,
         workDays,
-        reason: reason || undefined,
+        approverName: approver.name,
       }).catch((error) => {
-        console.error(`Failed to send email to ${approver.email}:`, error);
-      })
-    );
+        console.error('Failed to send approval email:', error);
+      });
 
-    // Use waitUntil to keep the worker alive until emails are sent
-    ctx.waitUntil(Promise.all(emailPromises));
+      ctx.waitUntil(approvalEmailPromise);
+
+      const teamMembers = await db
+        .prepare(
+          `SELECT DISTINCT u.email, u.name, t.name as team_name
+           FROM team_members tm
+           JOIN teams t ON tm.team_id = t.id
+           JOIN team_members tm2 ON tm.team_id = tm2.team_id
+           JOIN users u ON tm2.user_id = u.id
+           WHERE tm.user_id = ?
+           AND tm2.user_id != ?
+           AND t.organization_id = ?`
+        )
+        .bind(targetUserId, targetUserId, organizationId)
+        .all<{ email: string; name: string; team_name: string }>();
+
+      if (teamMembers.results.length > 0) {
+        const teamEmailPromises = teamMembers.results.map(
+          (member: { email: string; name: string; team_name: string }) =>
+            sendTeamAbsenceNotificationEmail(env, {
+              recipientName: member.name || member.email,
+              recipientEmail: member.email,
+              employeeName: user.name || user.email,
+              leaveType: leaveType.name_en,
+              startDate,
+              endDate,
+              teamName: member.team_name,
+            }).catch((error) => {
+              console.error(`Failed to send team notification to ${member.email}:`, error);
+            })
+        );
+
+        ctx.waitUntil(Promise.all(teamEmailPromises));
+      }
+    }
+  } else {
+    // Get all admins and managers to notify about this request
+    const approvers = await db
+      .prepare(
+        `SELECT u.email, u.name FROM organization_members om
+         JOIN users u ON om.user_id = u.id
+         WHERE om.organization_id = ?
+         AND om.status = 'active'
+         AND om.role IN ('admin', 'manager')
+         AND om.user_id != ?`
+      )
+      .bind(organizationId, session.user.id)
+      .all<{ email: string; name: string }>();
+
+    // Send notification emails to all approvers using waitUntil
+    if (user && leaveType && approvers.results.length > 0) {
+      const emailPromises = approvers.results.map((approver: { email: string; name: string }) =>
+        sendLeaveRequestSubmittedEmail(env, approver.email, {
+          employeeName: user.name || user.email,
+          employeeEmail: user.email,
+          leaveType: leaveType.name_en,
+          startDate,
+          endDate,
+          workDays,
+          reason: reason || undefined,
+        }).catch((error) => {
+          console.error(`Failed to send email to ${approver.email}:`, error);
+        })
+      );
+
+      // Use waitUntil to keep the worker alive until emails are sent
+      ctx.waitUntil(Promise.all(emailPromises));
+    }
   }
 
-  return created({ id, status: 'pending', workDays });
+  return created({ id, status, workDays });
 }

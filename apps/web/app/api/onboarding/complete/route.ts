@@ -7,6 +7,7 @@ import { badRequest, created, unauthorized } from '~/lib/api/responses';
 import { sendMemberInvitationEmail } from '~/lib/emails';
 import { getSiteUrl } from '~/lib/services/email.service';
 
+type TableInfoRow = { name: string };
 
 const onboardingCompleteSchema = z.object({
   // Profile
@@ -60,53 +61,203 @@ export async function POST(request: NextRequest) {
 
     const data = parsed.data;
     const userId = session.user.id;
+    const userEmail = session.user.email?.trim();
     const { env, ctx } = getCloudflareContext();
     const db = env.DB;
+    const userTableInfo = await db.prepare('PRAGMA table_info(users)').all<TableInfoRow>();
+    const accountTableInfo = await db.prepare('PRAGMA table_info(accounts)').all<TableInfoRow>();
+    const sessionTableInfo = await db.prepare('PRAGMA table_info(sessions)').all<TableInfoRow>();
+    const userColumns = new Set(
+      (userTableInfo.results ?? []).map((column: TableInfoRow) => column.name)
+    );
+    const accountColumns = new Set(
+      (accountTableInfo.results ?? []).map((column: TableInfoRow) => column.name)
+    );
+    const sessionColumns = new Set(
+      (sessionTableInfo.results ?? []).map((column: TableInfoRow) => column.name)
+    );
+    const emailVerifiedColumn = userColumns.has('emailVerified')
+      ? 'emailVerified'
+      : userColumns.has('email_verified')
+        ? 'email_verified'
+        : null;
+    const accountsUserIdColumn = accountColumns.has('userId')
+      ? 'userId'
+      : accountColumns.has('user_id')
+        ? 'user_id'
+        : null;
+    const sessionsUserIdColumn = sessionColumns.has('userId')
+      ? 'userId'
+      : sessionColumns.has('user_id')
+        ? 'user_id'
+        : null;
+    const existingUser = userEmail
+      ? await db
+          .prepare('SELECT id FROM users WHERE lower(email) = lower(?)')
+          .bind(userEmail)
+          .first<{ id: string }>()
+      : null;
 
     // Generate unique IDs
     const orgId = crypto.randomUUID();
     const memberId = crypto.randomUUID();
     const now = new Date().toISOString();
+    const displayName = data.displayName || session.user.name || null;
+    const timezone = data.timezone || 'Europe/Berlin';
+    const locale = data.locale || 'en';
+    const onboardingSteps = JSON.stringify([
+      'welcome',
+      'profile',
+      'organization',
+      'location',
+      'policy',
+      'team',
+      'invite',
+      'complete',
+    ]);
 
     // Start a batch transaction
     const statements = [];
+    const existingUserId = existingUser?.id as string | undefined;
+    const shouldMergeUser = !!existingUserId && existingUserId !== userId;
 
     // 1. Ensure user exists (UPSERT) and update profile
     // This handles the case where the D1 adapter wasn't used during auth
-    statements.push(
-      db
-        .prepare(
-          `INSERT INTO users (id, email, name, timezone, locale, onboarding_completed_at, onboarding_steps_completed, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(id) DO UPDATE SET
-             name = COALESCE(excluded.name, users.name),
-             timezone = COALESCE(excluded.timezone, users.timezone),
-             locale = COALESCE(excluded.locale, users.locale),
-             onboarding_completed_at = excluded.onboarding_completed_at,
-             onboarding_steps_completed = excluded.onboarding_steps_completed,
-             updated_at = excluded.updated_at`
-        )
-        .bind(
-          userId,
-          session.user.email,
-          data.displayName || session.user.name || null,
-          data.timezone || 'Europe/Berlin',
-          data.locale || 'en',
-          now,
-          JSON.stringify([
-            'welcome',
-            'profile',
-            'organization',
-            'location',
-            'policy',
-            'team',
-            'invite',
-            'complete',
-          ]),
-          now,
-          now
-        )
-    );
+    if (shouldMergeUser && userEmail) {
+      const tempEmail = `merged+${existingUserId}@local.invalid`;
+
+      statements.push(
+        db
+          .prepare('UPDATE users SET email = ?, updated_at = ? WHERE id = ?')
+          .bind(tempEmail, now, existingUserId)
+      );
+
+      const insertColumns = [
+        'id',
+        'email',
+        'name',
+      ];
+      const selectColumns = [
+        '?',
+        '?',
+        'COALESCE(?, name)',
+      ];
+      const insertValues: Array<string | number | null> = [
+        userId,
+        userEmail,
+        displayName,
+      ];
+
+      if (emailVerifiedColumn) {
+        insertColumns.push(emailVerifiedColumn);
+        selectColumns.push(emailVerifiedColumn);
+      }
+
+      insertColumns.push(
+        'image',
+        'phone',
+        'locale',
+        'timezone',
+        'employee_id',
+        'start_date',
+        'end_date',
+        'weekly_hours',
+        'work_days_per_week',
+        'notification_preferences',
+        'onboarding_completed_at',
+        'onboarding_steps_completed',
+        'created_at',
+        'updated_at'
+      );
+      selectColumns.push(
+        'image',
+        'phone',
+        'COALESCE(?, locale)',
+        'COALESCE(?, timezone)',
+        'employee_id',
+        'start_date',
+        'end_date',
+        'weekly_hours',
+        'work_days_per_week',
+        'notification_preferences',
+        '?',
+        '?',
+        'created_at',
+        '?'
+      );
+      insertValues.push(
+        locale,
+        timezone,
+        now,
+        onboardingSteps,
+        now
+      );
+
+      statements.push(
+        db
+          .prepare(
+            `INSERT INTO users (${insertColumns.join(', ')})
+             SELECT ${selectColumns.join(', ')}
+             FROM users WHERE id = ?`
+          )
+          .bind(...insertValues, existingUserId)
+      );
+
+      const userIdUpdates = [
+        { table: 'accounts', column: accountsUserIdColumn },
+        { table: 'sessions', column: sessionsUserIdColumn },
+        { table: 'organization_members', column: 'user_id' },
+        { table: 'team_members', column: 'user_id' },
+        { table: 'leave_balances', column: 'user_id' },
+        { table: 'leave_requests', column: 'user_id' },
+        { table: 'leave_requests', column: 'cancelled_by' },
+        { table: 'approval_rules', column: 'approver_user_id' },
+        { table: 'leave_approvals', column: 'approver_id' },
+        { table: 'organization_invites', column: 'invited_by' },
+        { table: 'audit_logs', column: 'user_id' },
+        { table: 'notifications', column: 'user_id' },
+      ].filter((entry) => entry.column);
+
+      for (const { table, column } of userIdUpdates) {
+        statements.push(
+          db
+            .prepare(`UPDATE ${table} SET ${column} = ? WHERE ${column} = ?`)
+            .bind(userId, existingUserId)
+        );
+      }
+
+      statements.push(
+        db
+          .prepare('DELETE FROM users WHERE id = ?')
+          .bind(existingUserId)
+      );
+    } else {
+      statements.push(
+        db
+          .prepare(
+            `INSERT INTO users (id, email, name, timezone, locale, onboarding_completed_at, onboarding_steps_completed, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(id) DO UPDATE SET
+               name = COALESCE(excluded.name, users.name),
+               timezone = COALESCE(excluded.timezone, users.timezone),
+               locale = COALESCE(excluded.locale, users.locale),
+               onboarding_completed_at = excluded.onboarding_completed_at,
+               onboarding_steps_completed = excluded.onboarding_steps_completed,
+               updated_at = excluded.updated_at`
+          )
+          .bind(
+            userId,
+            userEmail,
+            displayName,
+            timezone,
+            locale,
+            now,
+            onboardingSteps,
+            now,
+            now
+          )
+      );
+    }
 
     // 2. Create organization
     statements.push(
@@ -328,14 +479,31 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Onboarding completion error:', error);
 
-    // Check for unique constraint violation (slug already exists)
-    if (
-      error instanceof Error &&
-      error.message.includes('UNIQUE constraint failed')
-    ) {
-      return badRequest(
-        'An organization with this URL already exists. Please choose a different one.'
-      );
+    if (error instanceof Error && error.message.includes('UNIQUE constraint failed')) {
+      const match = error.message.match(/UNIQUE constraint failed: ([^\s]+)/);
+      const constraint = match?.[1];
+
+      if (constraint?.includes('organizations.slug')) {
+        return badRequest(
+          'An organization with this URL already exists. Please choose a different one.'
+        );
+      }
+
+      if (constraint?.includes('users.email')) {
+        return badRequest(
+          'A user with this email already exists. Please sign out and sign back in.'
+        );
+      }
+
+      if (constraint?.includes('organization_members.organization_id') && constraint.includes('organization_members.user_id')) {
+        return badRequest('You are already a member of an organization.');
+      }
+
+      if (constraint?.includes('organization_invites.organization_id') && constraint.includes('organization_invites.email')) {
+        return badRequest('An invite for this email already exists.');
+      }
+
+      return badRequest('A unique constraint failed. Please try again.');
     }
 
     return NextResponse.json(

@@ -113,6 +113,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     .prepare(
       `SELECT
         la.*,
+        la.decision as action,
         u.name as approver_name
       FROM leave_approvals la
       JOIN users u ON la.approver_id = u.id
@@ -192,14 +193,29 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return notFound('Leave request not found');
   }
 
-  // Can only modify your own request
-  if (leaveRequest.user_id !== session.user.id) {
-    return forbidden('Can only modify your own leave requests');
+  const membership = await db
+    .prepare(
+      `SELECT organization_id, role FROM organization_members
+       WHERE user_id = ? AND status = 'active'
+       LIMIT 1`
+    )
+    .bind(session.user.id)
+    .first<{ organization_id: string; role: string }>();
+
+  if (!membership || membership.organization_id !== leaveRequest.organization_id) {
+    return forbidden('Cannot modify leave requests from other organizations');
   }
+
+  const isOwner = leaveRequest.user_id === session.user.id;
+  const isAdmin = membership.role === 'admin';
 
   const now = new Date().toISOString();
 
   if (status === 'withdrawn') {
+    if (!isOwner) {
+      return forbidden('Only the request owner can withdraw a leave request');
+    }
+
     // Can only withdraw pending requests
     if (leaveRequest.status !== 'pending') {
       return badRequest('Can only withdraw pending leave requests');
@@ -231,6 +247,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         ),
     ]);
   } else if (status === 'cancelled') {
+    if (!isOwner && !isAdmin) {
+      return forbidden("Only admins can cancel other members' leave requests");
+    }
+
     // Can only cancel approved requests
     if (leaveRequest.status !== 'approved') {
       return badRequest('Can only cancel approved leave requests');
@@ -238,8 +258,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     await db.batch([
       db
-        .prepare(`UPDATE leave_requests SET status = 'cancelled', updated_at = ? WHERE id = ?`)
-        .bind(now, id),
+        .prepare(
+          `UPDATE leave_requests
+           SET status = 'cancelled',
+               cancelled_at = ?,
+               cancelled_by = ?,
+               updated_at = ?
+           WHERE id = ?`
+        )
+        .bind(now, session.user.id, now, id),
 
       // Return used days to available balance
       db

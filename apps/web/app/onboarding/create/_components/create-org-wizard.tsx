@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -62,10 +62,15 @@ const steps = [
   { title: 'Policy', description: 'Leave settings' },
 ];
 
+type SlugAvailability = 'idle' | 'checking' | 'available' | 'taken';
+
 export function CreateOrgWizard() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
   const createOrganization = useCreateOrganization();
+  const [slugAvailability, setSlugAvailability] = useState<SlugAvailability>('idle');
+  const checkTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastCheckedSlug = useRef<string>('');
 
   const form = useForm<FormData>({
     resolver: zodResolver(fullSchema),
@@ -80,6 +85,70 @@ export function CreateOrgWizard() {
 
   const _watchName = form.watch('name');
 
+  const checkSlugAvailability = useCallback(async (slug: string) => {
+    if (!slug || slug.length < 2) {
+      setSlugAvailability('idle');
+      return null;
+    }
+
+    if (lastCheckedSlug.current === slug) {
+      if (slugAvailability === 'available') {
+        return true;
+      }
+      if (slugAvailability === 'taken') {
+        return false;
+      }
+      return null;
+    }
+
+    setSlugAvailability('checking');
+
+    try {
+      const response = await fetch(`/api/organizations/check-slug?slug=${encodeURIComponent(slug)}`);
+      const result = await response.json();
+      lastCheckedSlug.current = slug;
+
+      if (result.data?.available) {
+        setSlugAvailability('available');
+        form.clearErrors('slug');
+        return true;
+      }
+
+      setSlugAvailability('taken');
+      form.setError('slug', {
+        type: 'manual',
+        message: 'This URL is already taken. Please choose a different one.',
+      });
+      return false;
+    } catch {
+      setSlugAvailability('idle');
+      return null;
+    }
+  }, [form, slugAvailability]);
+
+  const debouncedCheckSlug = useCallback((slug: string) => {
+    if (checkTimeoutRef.current) {
+      clearTimeout(checkTimeoutRef.current);
+    }
+
+    if (slugAvailability === 'taken') {
+      form.clearErrors('slug');
+    }
+    setSlugAvailability('idle');
+
+    checkTimeoutRef.current = setTimeout(() => {
+      void checkSlugAvailability(slug);
+    }, 500);
+  }, [checkSlugAvailability, form, slugAvailability]);
+
+  useEffect(() => {
+    return () => {
+      if (checkTimeoutRef.current) {
+        clearTimeout(checkTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Auto-generate slug from name
   const handleNameChange = (value: string) => {
     form.setValue('name', value);
@@ -88,7 +157,29 @@ export function CreateOrgWizard() {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
     form.setValue('slug', slug);
+    debouncedCheckSlug(slug);
   };
+
+  const handleSlugChange = (value: string) => {
+    form.setValue('slug', value, { shouldValidate: true });
+    debouncedCheckSlug(value);
+  };
+
+  const ensureSlugAvailable = useCallback(async () => {
+    const slug = form.getValues('slug');
+
+    if (!slug || slug.length < 2) {
+      return true;
+    }
+
+    const isAvailable = await checkSlugAvailability(slug);
+
+    if (slugAvailability === 'checking') {
+      return false;
+    }
+
+    return isAvailable !== false;
+  }, [checkSlugAvailability, form, slugAvailability]);
 
   const validateCurrentStep = async () => {
     let fieldsToValidate: (keyof FormData)[] = [];
@@ -111,9 +202,16 @@ export function CreateOrgWizard() {
 
   const handleNext = async () => {
     const isValid = await validateCurrentStep();
-    if (isValid) {
-      setCurrentStep((prev) => Math.min(prev + 1, steps.length - 1));
+    if (!isValid) return;
+
+    if (currentStep === 0) {
+      const canProceed = await ensureSlugAvailable();
+      if (!canProceed) {
+        return;
+      }
     }
+
+    setCurrentStep((prev) => Math.min(prev + 1, steps.length - 1));
   };
 
   const handleBack = () => {
@@ -122,6 +220,11 @@ export function CreateOrgWizard() {
 
   const onSubmit = async (data: FormData) => {
     try {
+      const canProceed = await ensureSlugAvailable();
+      if (!canProceed) {
+        return;
+      }
+
       await createOrganization.mutateAsync({
         name: data.name,
         slug: data.slug,
@@ -206,7 +309,11 @@ export function CreateOrgWizard() {
                   <FormItem>
                     <FormLabel>URL Slug</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="" />
+                      <Input
+                        {...field}
+                        placeholder=""
+                        onChange={(e) => handleSlugChange(e.target.value)}
+                      />
                     </FormControl>
                     <FormDescription>
                       Your organization URL: zeitpal.com/{field.value || 'your-org'}

@@ -16,6 +16,7 @@ interface InviteRow {
   role: string;
   token: string;
   invited_by: string;
+  team_id: string | null;
   expires_at: string;
   accepted_at: string | null;
   created_at: string;
@@ -40,7 +41,7 @@ export async function GET(
   const invite = await db
     .prepare(
       `SELECT
-        i.id, i.organization_id, i.email, i.role, i.token,
+        i.id, i.organization_id, i.email, i.role, i.token, i.team_id,
         i.invited_by, i.expires_at, i.accepted_at, i.created_at,
         o.name as organization_name,
         u.name as inviter_name, u.email as inviter_email
@@ -98,7 +99,7 @@ export async function POST(
   const invite = await db
     .prepare(
       `SELECT
-        i.id, i.organization_id, i.email, i.role, i.token,
+        i.id, i.organization_id, i.email, i.role, i.token, i.team_id,
         i.expires_at, i.accepted_at,
         o.name as organization_name
        FROM organization_invites i
@@ -114,6 +115,7 @@ export async function POST(
       token: string;
       expires_at: string;
       accepted_at: string | null;
+      team_id: string | null;
       organization_name: string;
     }>();
 
@@ -193,7 +195,20 @@ export async function POST(
       .bind(now, invite.id)
   );
 
-  // 3. Create initial leave balances for the user
+  // 3. Add user to team if invite specifies one
+  if (invite.team_id) {
+    statements.push(
+      db
+        .prepare(
+          `INSERT OR IGNORE INTO team_members (
+            id, team_id, user_id, is_lead, created_at
+          ) VALUES (?, ?, ?, 0, ?)`
+        )
+        .bind(crypto.randomUUID(), invite.team_id, session.user.id, now)
+    );
+  }
+
+  // 4. Create initial leave balances for the user
   const currentYear = new Date().getFullYear();
 
   // Get organization's default vacation days

@@ -5,6 +5,7 @@ import { z } from 'zod';
 
 import { auth } from '~/lib/auth/auth';
 import {
+  badRequest,
   created,
   unauthorized,
   forbidden,
@@ -39,7 +40,8 @@ export async function POST(request: NextRequest) {
     return validationError(parsed.error.flatten());
   }
 
-  const { email, role, teamIds: _teamIds } = parsed.data;
+  const { email, role, teamIds } = parsed.data;
+  const normalizedEmail = email.trim().toLowerCase();
   const { env, ctx } = getCloudflareContext();
   const db = env.DB;
 
@@ -71,9 +73,9 @@ export async function POST(request: NextRequest) {
   const existingInvite = await db
     .prepare(
       `SELECT id FROM organization_invites
-       WHERE organization_id = ? AND email = ? AND status = 'pending' AND expires_at > datetime('now')`
+       WHERE organization_id = ? AND email = ? AND accepted_at IS NULL AND expires_at > datetime('now')`
     )
-    .bind(membership.organization_id, email)
+    .bind(membership.organization_id, normalizedEmail)
     .first();
 
   if (existingInvite) {
@@ -85,13 +87,35 @@ export async function POST(request: NextRequest) {
     .prepare(
       `SELECT om.id FROM organization_members om
        JOIN users u ON om.user_id = u.id
-       WHERE om.organization_id = ? AND u.email = ? AND om.status = 'active'`
+       WHERE om.organization_id = ? AND LOWER(u.email) = ? AND om.status = 'active'`
     )
-    .bind(membership.organization_id, email)
+    .bind(membership.organization_id, normalizedEmail)
     .first();
 
   if (existingMember) {
     return conflict('This user is already a member of the organization');
+  }
+
+  let teamId: string | null = null;
+  const uniqueTeamIds = Array.from(new Set(teamIds ?? []));
+
+  if (uniqueTeamIds.length > 0) {
+    const placeholders = uniqueTeamIds.map(() => '?').join(',');
+    const teamResult = await db
+      .prepare(
+        `SELECT id FROM teams
+         WHERE organization_id = ? AND id IN (${placeholders})`
+      )
+      .bind(membership.organization_id, ...uniqueTeamIds)
+      .all<{ id: string }>();
+
+    const validTeamIds = teamResult.results.map((row: { id: string }) => row.id);
+
+    if (validTeamIds.length === 0) {
+      return badRequest('Selected team not found');
+    }
+
+    teamId = validTeamIds[0] ?? null;
   }
 
   // Create the invite
@@ -103,18 +127,19 @@ export async function POST(request: NextRequest) {
   await db
     .prepare(
       `INSERT INTO organization_invites (
-        id, organization_id, email, role, token, invited_by, status, expires_at, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)`
+        id, organization_id, email, role, token, invited_by, expires_at, created_at, team_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       inviteId,
       membership.organization_id,
-      email,
+      normalizedEmail,
       role,
       token,
       session.user.id,
       expiresAt,
-      now
+      now,
+      teamId
     )
     .run();
 
@@ -136,7 +161,7 @@ export async function POST(request: NextRequest) {
   if (organization?.name && inviter) {
     const emailPromise = sendMemberInvitationEmail(env, {
       inviteeName: email.split('@')[0] ?? email, // Use email prefix as name
-      inviteeEmail: email,
+      inviteeEmail: normalizedEmail,
       organizationName: organization.name,
       inviterName: inviter.name || inviter.email,
       role,

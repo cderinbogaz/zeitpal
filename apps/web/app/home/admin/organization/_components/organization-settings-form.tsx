@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import Link from 'next/link';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -126,8 +127,11 @@ export function OrganizationSettingsForm() {
   if (!organization) {
     return (
       <Card>
-        <CardContent className="py-8 text-center">
+        <CardContent className="flex min-h-[240px] flex-col items-center justify-center gap-4 text-center">
           <p className="text-muted-foreground">No organization found. Please create one first.</p>
+          <Button asChild>
+            <Link href="/onboarding/create">Create an organization</Link>
+          </Button>
         </CardContent>
       </Card>
     );

@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { z } from 'zod';
@@ -13,6 +13,13 @@ const checkSlugSchema = z.object({
     .regex(/^[a-z0-9-]+$/, 'Only lowercase letters, numbers, and hyphens'),
 });
 
+export const dynamic = 'force-dynamic';
+
+const withNoStore = <T>(response: NextResponse<T>) => {
+  response.headers.set('Cache-Control', 'no-store');
+  return response;
+};
+
 /**
  * GET /api/organizations/check-slug?slug=<slug>
  * Check if an organization slug is available
@@ -23,13 +30,13 @@ export async function GET(request: NextRequest) {
   const slug = request.nextUrl.searchParams.get('slug');
 
   if (!slug) {
-    return badRequest('Missing slug parameter');
+    return withNoStore(badRequest('Missing slug parameter'));
   }
 
   const parsed = checkSlugSchema.safeParse({ slug });
 
   if (!parsed.success) {
-    return validationError(parsed.error.flatten());
+    return withNoStore(validationError(parsed.error.flatten()));
   }
 
   const { env } = getCloudflareContext();
@@ -41,8 +48,8 @@ export async function GET(request: NextRequest) {
     .bind(parsed.data.slug)
     .first();
 
-  return success({
+  return withNoStore(success({
     available: !existingOrg,
     slug: parsed.data.slug,
-  });
+  }));
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
+import { format } from 'date-fns';
 import { MoreHorizontal, Plus, Trash2, UserMinus, UserPlus, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -43,10 +44,19 @@ import {
 import { Input } from '@kit/ui/input';
 import { Label } from '@kit/ui/label';
 import { Skeleton } from '@kit/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@kit/ui/table';
 import { Textarea } from '@kit/ui/textarea';
 import { Trans } from '@kit/ui/trans';
 import { cn } from '@kit/ui/utils';
 
+import { useOrganization } from '~/lib/hooks';
 import { apiFetch } from '~/lib/utils/csrf';
 
 const TEAM_COLORS = [
@@ -81,6 +91,23 @@ interface OrgMember {
   teamNames: string[];
 }
 
+interface PendingInvite {
+  id: string;
+  email: string;
+  role: string;
+  expiresAt: string;
+  createdAt: string;
+  team: { id: string; name: string } | null;
+}
+
+const inviteRoleLabels: Record<string, string> = {
+  admin: 'Admin',
+  manager: 'Manager',
+  hr: 'HR',
+  employee: 'Employee',
+  member: 'Member',
+};
+
 function TeamsSkeleton() {
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -100,12 +127,19 @@ function TeamsSkeleton() {
 }
 
 export function TeamsManagement() {
+  const { data: organization } = useOrganization();
+  const canManageTeams = ['admin', 'manager', 'hr'].includes(
+    organization?.memberRole ?? ''
+  );
   const [teams, setTeams] = useState<Team[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [isMembersLoading, setIsMembersLoading] = useState(true);
   const [membersError, setMembersError] = useState<string | null>(null);
+  const [invites, setInvites] = useState<PendingInvite[]>([]);
+  const [isInvitesLoading, setIsInvitesLoading] = useState(false);
+  const [invitesError, setInvitesError] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [teamName, setTeamName] = useState('');
   const [teamDescription, setTeamDescription] = useState('');
@@ -116,6 +150,8 @@ export function TeamsManagement() {
   const [activeTeam, setActiveTeam] = useState<Team | null>(null);
   const [addMemberIds, setAddMemberIds] = useState<string[]>([]);
   const [isAddingMembers, setIsAddingMembers] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [isInvitingMember, setIsInvitingMember] = useState(false);
 
   // Delete team state
   const [deletingTeam, setDeletingTeam] = useState<Team | null>(null);
@@ -173,6 +209,35 @@ export function TeamsManagement() {
     fetchMembers();
   }, []);
 
+  const fetchInvites = async () => {
+    setIsInvitesLoading(true);
+    try {
+      const response = await fetch('/api/members/invites');
+      if (!response.ok) {
+        throw new Error('Failed to load invites');
+      }
+      const data = await response.json();
+      setInvites(data.data || []);
+      setInvitesError(null);
+    } catch (err) {
+      setInvitesError(
+        err instanceof Error ? err.message : 'Failed to load invites'
+      );
+    } finally {
+      setIsInvitesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (canManageTeams) {
+      fetchInvites();
+    } else {
+      setInvites([]);
+      setInvitesError(null);
+      setIsInvitesLoading(false);
+    }
+  }, [canManageTeams]);
+
   const resetForm = () => {
     setTeamName('');
     setTeamDescription('');
@@ -205,10 +270,16 @@ export function TeamsManagement() {
   const openAddMembers = (team: Team) => {
     setActiveTeam(team);
     setAddMemberIds([]);
+    setInviteEmail('');
     setAddDialogOpen(true);
   };
 
   const handleCreateTeam = async () => {
+    if (!canManageTeams) {
+      toast.error('You do not have permission to create teams');
+      return;
+    }
+
     const trimmedName = teamName.trim();
     if (!trimmedName) {
       return;
@@ -247,6 +318,11 @@ export function TeamsManagement() {
   };
 
   const handleAddMembers = async () => {
+    if (!canManageTeams) {
+      toast.error('You do not have permission to add team members');
+      return;
+    }
+
     if (!activeTeam || addMemberIds.length === 0) {
       return;
     }
@@ -282,7 +358,53 @@ export function TeamsManagement() {
     }
   };
 
+  const handleInviteMember = async () => {
+    if (!canManageTeams) {
+      toast.error('You do not have permission to invite members');
+      return;
+    }
+
+    if (!activeTeam) {
+      return;
+    }
+
+    const trimmedEmail = inviteEmail.trim();
+    if (!trimmedEmail) {
+      return;
+    }
+
+    setIsInvitingMember(true);
+
+    try {
+      const { error } = await apiFetch('/api/members/invite', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: trimmedEmail,
+          role: 'member',
+          teamIds: [activeTeam.id],
+        }),
+      });
+
+      if (error) {
+        throw new Error(error);
+      }
+
+      toast.success(`Invite sent to ${trimmedEmail}`);
+      setInviteEmail('');
+      fetchInvites();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to invite member');
+    } finally {
+      setIsInvitingMember(false);
+    }
+  };
+
   const handleDeleteTeam = async () => {
+    if (!canManageTeams) {
+      toast.error('You do not have permission to delete teams');
+      return;
+    }
+
     if (!deletingTeam) return;
 
     setIsDeletingTeam(true);
@@ -331,6 +453,11 @@ export function TeamsManagement() {
   };
 
   const handleRemoveMember = async () => {
+    if (!canManageTeams) {
+      toast.error('You do not have permission to remove team members');
+      return;
+    }
+
     if (!removingMember) return;
 
     setIsRemovingMember(true);
@@ -370,22 +497,23 @@ export function TeamsManagement() {
           <Trans i18nKey="admin:teams.teamsCount" defaults="Teams" />
         </h2>
 
-        <Dialog
-          open={createDialogOpen}
-          onOpenChange={(open) => {
-            setCreateDialogOpen(open);
-            if (!open) {
-              resetForm();
-            }
-          }}
-        >
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              <Trans i18nKey="admin:teams.createTeam" defaults="Create Team" />
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
+        {canManageTeams ? (
+          <Dialog
+            open={createDialogOpen}
+            onOpenChange={(open) => {
+              setCreateDialogOpen(open);
+              if (!open) {
+                resetForm();
+              }
+            }}
+          >
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                <Trans i18nKey="admin:teams.createTeam" defaults="Create Team" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
             <DialogHeader>
               <DialogTitle>
                 <Trans
@@ -536,8 +664,9 @@ export function TeamsManagement() {
                 )}
               </Button>
             </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        ) : null}
       </div>
 
       {isLoading ? (
@@ -580,61 +709,144 @@ export function TeamsManagement() {
                       <Users className="mr-1 h-3 w-3" />
                       {team.memberCount}
                     </Badge>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Actions</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() => setDeletingTeam(team)}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          <Trans
-                            i18nKey="admin:teams.actions.delete"
-                            defaults="Delete Team"
-                          />
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    {canManageTeams ? (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Actions</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => setDeletingTeam(team)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            <Trans
+                              i18nKey="admin:teams.actions.delete"
+                              defaults="Delete Team"
+                            />
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    ) : null}
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="pt-0">
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => openAddMembers(team)}
-                  >
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    <Trans
-                      i18nKey="admin:teams.actions.addMembers"
-                      defaults="Add Members"
-                    />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => openManageMembers(team)}
-                  >
-                    <Users className="mr-2 h-4 w-4" />
-                    <Trans
-                      i18nKey="admin:teams.actions.manageMembers"
-                      defaults="Manage"
-                    />
-                  </Button>
-                </div>
+                {canManageTeams ? (
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => openAddMembers(team)}
+                    >
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      <Trans
+                        i18nKey="admin:teams.actions.addMembers"
+                        defaults="Add Members"
+                      />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => openManageMembers(team)}
+                    >
+                      <Users className="mr-2 h-4 w-4" />
+                      <Trans
+                        i18nKey="admin:teams.actions.manageMembers"
+                        defaults="Manage"
+                      />
+                    </Button>
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      {canManageTeams ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <Trans
+                i18nKey="teams:pendingInvitesHeading"
+                defaults="Pending Invites"
+              />
+            </CardTitle>
+            <CardDescription>
+              <Trans
+                i18nKey="teams:pendingInvitesDescription"
+                defaults="Here you can manage the pending invitations to your team."
+              />
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isInvitesLoading ? (
+              <div className="space-y-2">
+                {[...Array(3)].map((_, index) => (
+                  <div key={index} className="flex items-center gap-3">
+                    <Skeleton className="h-4 w-40" />
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-4 w-28" />
+                  </div>
+                ))}
+              </div>
+            ) : invitesError ? (
+              <div className="text-sm text-muted-foreground">
+                {invitesError}
+              </div>
+            ) : invites.length === 0 ? (
+              <div className="text-sm text-muted-foreground">
+                <Trans
+                  i18nKey="teams:noPendingInvites"
+                  defaults="No pending invites found"
+                />
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>
+                      <Trans i18nKey="teams:emailLabel" defaults="Email" />
+                    </TableHead>
+                    <TableHead>
+                      <Trans i18nKey="teams:roleLabel" defaults="Role" />
+                    </TableHead>
+                    <TableHead>
+                      <Trans i18nKey="teams:teamNameLabel" defaults="Team" />
+                    </TableHead>
+                    <TableHead>
+                      <Trans i18nKey="teams:expiresAtLabel" defaults="Expires at" />
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {invites.map((invite) => (
+                    <TableRow key={invite.id}>
+                      <TableCell>{invite.email}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">
+                          {inviteRoleLabels[invite.role] ?? invite.role}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{invite.team?.name || '-'}</TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {format(new Date(invite.expiresAt), 'MMM d, yyyy')}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Dialog
         open={addDialogOpen}
@@ -643,6 +855,7 @@ export function TeamsManagement() {
           if (!open) {
             setActiveTeam(null);
             setAddMemberIds([]);
+            setInviteEmail('');
           }
         }}
       >
@@ -716,6 +929,36 @@ export function TeamsManagement() {
                 </p>
               )}
             </div>
+          </div>
+
+          <div className="grid gap-2">
+            <Label>Invite by email</Label>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Input
+                type="email"
+                placeholder="name@company.com"
+                value={inviteEmail}
+                onChange={(event) => setInviteEmail(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    void handleInviteMember();
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                onClick={handleInviteMember}
+                disabled={!activeTeam || !inviteEmail.trim() || isInvitingMember}
+              >
+                {isInvitingMember ? 'Sending...' : 'Send Invite'}
+              </Button>
+            </div>
+            <p className="text-muted-foreground text-xs">
+              {activeTeam
+                ? `We will add them to ${activeTeam.name} after they accept.`
+                : 'Select a team to send an invite.'}
+            </p>
           </div>
 
           <DialogFooter>

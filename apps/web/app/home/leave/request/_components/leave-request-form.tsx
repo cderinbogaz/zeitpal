@@ -40,6 +40,8 @@ import { useLeaveTypes, useHolidays, useCreateLeaveRequest } from '~/lib/hooks';
 import { calculateWorkDays } from '~/lib/utils/leave-calculations';
 
 interface LeaveRequestFormProps {
+  /** Create the leave request on behalf of a specific user (admins only). */
+  userId?: string;
   /** Called when the form is successfully submitted. If provided, the form won't navigate away. */
   onSuccess?: () => void;
   /** Called when the cancel button is clicked. If provided, uses this instead of router.back() */
@@ -65,7 +67,12 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
-export function LeaveRequestForm({ onSuccess, onCancel, compact = false }: LeaveRequestFormProps) {
+export function LeaveRequestForm({
+  userId,
+  onSuccess,
+  onCancel,
+  compact = false,
+}: LeaveRequestFormProps) {
   const router = useRouter();
 
   // Fetch leave types and holidays from API
@@ -87,6 +94,10 @@ export function LeaveRequestForm({ onSuccess, onCancel, compact = false }: Leave
   const watchEndDate = form.watch('endDate');
   const watchStartHalfDay = form.watch('startHalfDay');
   const watchEndHalfDay = form.watch('endHalfDay');
+  const dateRangeError = form.formState.errors.endDate?.message;
+  const selectedRange = watchStartDate
+    ? { from: watchStartDate, to: watchEndDate }
+    : undefined;
 
   // Convert holidays to date strings for calculation
   const holidayDates = holidays?.map((h) => h.date) || [];
@@ -106,6 +117,7 @@ export function LeaveRequestForm({ onSuccess, onCancel, compact = false }: Leave
   const onSubmit = async (data: FormData) => {
     try {
       await createLeaveRequest.mutateAsync({
+        userId,
         leaveTypeId: data.leaveTypeId,
         startDate: format(data.startDate, 'yyyy-MM-dd'),
         endDate: format(data.endDate, 'yyyy-MM-dd'),
@@ -215,94 +227,79 @@ export function LeaveRequestForm({ onSuccess, onCancel, compact = false }: Leave
             />
 
             {/* Date Range */}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="startDate"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>
-                      <Trans i18nKey="leave:request.startDate" />
-                    </FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              'w-full pl-3 text-left font-normal',
-                              !field.value && 'text-muted-foreground'
-                            )}
-                          >
-                            {field.value ? (
-                              format(field.value, 'PPP')
+            <FormField
+              control={form.control}
+              name="startDate"
+              render={() => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>
+                    <Trans i18nKey="leave:request.dateRange" />
+                  </FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            'w-full pl-3 text-left font-normal',
+                            !watchStartDate && 'text-muted-foreground'
+                          )}
+                        >
+                          {watchStartDate ? (
+                            watchEndDate ? (
+                              <>
+                                {format(watchStartDate, 'PPP')} -{' '}
+                                {format(watchEndDate, 'PPP')}
+                              </>
                             ) : (
-                              <span>Pick a date</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          disabled={(date) => date < new Date()}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="endDate"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>
-                      <Trans i18nKey="leave:request.endDate" />
-                    </FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              'w-full pl-3 text-left font-normal',
-                              !field.value && 'text-muted-foreground'
-                            )}
-                          >
-                            {field.value ? (
-                              format(field.value, 'PPP')
-                            ) : (
-                              <span>Pick a date</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          disabled={(date) =>
-                            date < new Date() ||
-                            (watchStartDate && date < watchStartDate)
+                              <>
+                                {format(watchStartDate, 'PPP')} -{' '}
+                                <span className="text-muted-foreground">
+                                  Pick an end date
+                                </span>
+                              </>
+                            )
+                          ) : (
+                            <span>Pick a date range</span>
+                          )}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="range"
+                        selected={selectedRange}
+                        onSelect={(range) => {
+                          if (!range?.from) {
+                            form.resetField('startDate');
+                            form.resetField('endDate');
+                            return;
                           }
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+
+                          form.setValue('startDate', range.from, {
+                            shouldDirty: true,
+                            shouldValidate: true,
+                          });
+
+                          if (range.to) {
+                            form.setValue('endDate', range.to, {
+                              shouldDirty: true,
+                              shouldValidate: true,
+                            });
+                          } else {
+                            form.resetField('endDate');
+                          }
+                        }}
+                        disabled={(date) => date < new Date()}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage>{dateRangeError}</FormMessage>
+                </FormItem>
+              )}
+            />
 
             {/* Half Day Options */}
             {watchStartDate && watchEndDate && (

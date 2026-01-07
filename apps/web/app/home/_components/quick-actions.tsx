@@ -7,6 +7,7 @@ import { CalendarDays, ClipboardList, Clock } from 'lucide-react';
 import { Button } from '@kit/ui/button';
 import { Card, CardContent } from '@kit/ui/card';
 import { Trans } from '@kit/ui/trans';
+import { cn } from '@kit/ui/utils';
 
 import pathsConfig from '~/config/paths.config';
 
@@ -31,26 +32,51 @@ const quickActions = [
   },
 ];
 
-export function QuickActions() {
+type QuickActionsVariant = 'card' | 'header';
+
+type QuickActionsProps = {
+  variant?: QuickActionsVariant;
+  className?: string;
+};
+
+export function QuickActions({
+  variant = 'card',
+  className,
+}: QuickActionsProps) {
+  const content = (
+    <div
+      className={cn(
+        'flex flex-wrap gap-3',
+        variant === 'header' && 'justify-end',
+        className,
+      )}
+    >
+      {quickActions.map((action) => (
+        <Button
+          key={action.href}
+          variant={action.variant}
+          asChild
+          className={cn(
+            'min-w-[140px]',
+            variant === 'card' ? 'flex-1' : 'shrink-0',
+          )}
+        >
+          <Link href={action.href}>
+            <action.icon className="mr-2 h-4 w-4" />
+            <Trans i18nKey={action.labelKey} />
+          </Link>
+        </Button>
+      ))}
+    </div>
+  );
+
+  if (variant === 'header') {
+    return content;
+  }
+
   return (
     <Card>
-      <CardContent className="p-4">
-        <div className="flex flex-wrap gap-3">
-          {quickActions.map((action) => (
-            <Button
-              key={action.href}
-              variant={action.variant}
-              asChild
-              className="flex-1 min-w-[140px]"
-            >
-              <Link href={action.href}>
-                <action.icon className="mr-2 h-4 w-4" />
-                <Trans i18nKey={action.labelKey} />
-              </Link>
-            </Button>
-          ))}
-        </div>
-      </CardContent>
+      <CardContent className="p-4">{content}</CardContent>
     </Card>
   );
 }

@@ -19,7 +19,9 @@ export default async function HomePage() {
       <PageHeader
         title={<Trans i18nKey="leave:dashboard.title" />}
         description={<Trans i18nKey="leave:dashboard.description" />}
-      />
+      >
+        <QuickActions variant="header" />
+      </PageHeader>
 
       <PageBody>
         <div className="grid gap-6">
@@ -31,23 +33,13 @@ export default async function HomePage() {
             <LeaveBalanceOverview />
           </section>
 
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* Quick Actions */}
-            <section>
-              <h2 className="mb-4 text-lg font-semibold">
-                <Trans i18nKey="leave:dashboard.quickActions" />
-              </h2>
-              <QuickActions />
-            </section>
-
-            {/* Recent Requests */}
-            <section>
-              <h2 className="mb-4 text-lg font-semibold">
-                <Trans i18nKey="leave:dashboard.recentRequests" />
-              </h2>
-              <RecentRequests />
-            </section>
-          </div>
+          {/* Recent Requests */}
+          <section>
+            <h2 className="mb-4 text-lg font-semibold">
+              <Trans i18nKey="leave:dashboard.recentRequests" />
+            </h2>
+            <RecentRequests />
+          </section>
 
           {/* Team Absences */}
           <section>

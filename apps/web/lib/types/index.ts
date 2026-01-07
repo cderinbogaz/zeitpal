@@ -310,6 +310,7 @@ export interface Organization {
   sickLeaveAuThreshold: number;
   requireApproval: boolean;
   autoApproveThreshold: number | null;
+  memberRole?: MemberRole;
   plan: 'free' | 'starter' | 'professional' | 'enterprise';
   planExpiresAt: Timestamp | null;
   createdAt: Timestamp;

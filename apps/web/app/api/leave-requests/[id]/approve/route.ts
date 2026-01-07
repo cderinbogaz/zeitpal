@@ -107,10 +107,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     db
       .prepare(
         `INSERT INTO leave_approvals (
-          id, leave_request_id, approver_id, action, comment, created_at
-        ) VALUES (?, ?, ?, 'approved', ?, ?)`
+          id, leave_request_id, approver_id, decision, comment, decided_at, created_at
+        ) VALUES (?, ?, ?, 'approved', ?, ?, ?)`
       )
-      .bind(approvalId, id, session.user.id, comment || null, now),
+      .bind(approvalId, id, session.user.id, comment || null, now, now),
 
     // Update leave request status
     db
