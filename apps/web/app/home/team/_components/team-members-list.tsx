@@ -142,6 +142,7 @@ export function TeamMembersList() {
   const canAddLeave = organization?.memberRole === 'admin';
 
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
     };

@@ -26,52 +26,13 @@ import {
 
 import { useOnboarding } from '~/lib/contexts/onboarding-context';
 import {
-  BUNDESLAND_NAMES,
   COUNTRIES,
+  REGIONS_BY_COUNTRY,
   type CountryCode,
 } from '~/lib/types';
 
 import { OnboardingStepWrapper } from '../../_components/onboarding-step-wrapper';
 import { StepInfoBox } from '../../_components/step-info-box';
-
-// Region data for countries with regional holidays
-const REGIONS: Record<string, Array<{ code: string; name: string }>> = {
-  DE: Object.entries(BUNDESLAND_NAMES).map(([code, names]) => ({
-    code,
-    name: names.de,
-  })),
-  AT: [
-    { code: 'W', name: 'Wien' },
-    { code: 'NOE', name: 'Niederösterreich' },
-    { code: 'OOE', name: 'Oberösterreich' },
-    { code: 'SBG', name: 'Salzburg' },
-    { code: 'T', name: 'Tirol' },
-    { code: 'VBG', name: 'Vorarlberg' },
-    { code: 'KTN', name: 'Kärnten' },
-    { code: 'STMK', name: 'Steiermark' },
-    { code: 'BGLD', name: 'Burgenland' },
-  ],
-  CH: [
-    { code: 'ZH', name: 'Zürich' },
-    { code: 'BE', name: 'Bern' },
-    { code: 'LU', name: 'Luzern' },
-    { code: 'ZG', name: 'Zug' },
-    { code: 'BS', name: 'Basel-Stadt' },
-    { code: 'BL', name: 'Basel-Landschaft' },
-    { code: 'AG', name: 'Aargau' },
-    { code: 'SG', name: 'St. Gallen' },
-    { code: 'GR', name: 'Graubünden' },
-    { code: 'TI', name: 'Tessin' },
-    { code: 'VD', name: 'Waadt' },
-    { code: 'GE', name: 'Genf' },
-  ],
-  GB: [
-    { code: 'ENG', name: 'England' },
-    { code: 'SCT', name: 'Scotland' },
-    { code: 'WLS', name: 'Wales' },
-    { code: 'NIR', name: 'Northern Ireland' },
-  ],
-};
 
 const locationSchema = z.object({
   country: z.string().min(1, 'Please select a country'),
@@ -95,8 +56,8 @@ export default function LocationPage() {
 
   const selectedCountry = form.watch('country') as CountryCode;
   const countryConfig = COUNTRIES.find((c) => c.code === selectedCountry);
-  const hasRegions = countryConfig?.hasRegionalHolidays && REGIONS[selectedCountry];
-  const regions = REGIONS[selectedCountry] || [];
+  const regions = REGIONS_BY_COUNTRY[selectedCountry] || [];
+  const hasRegions = countryConfig?.hasRegionalHolidays && regions.length > 0;
 
   const handleCountryChange = (value: string) => {
     form.setValue('country', value);

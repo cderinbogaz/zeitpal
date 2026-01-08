@@ -56,8 +56,10 @@ import { Textarea } from '@kit/ui/textarea';
 import { Trans } from '@kit/ui/trans';
 import { cn } from '@kit/ui/utils';
 
-import { useOrganization } from '~/lib/hooks';
+import { EmailTagsInput } from '~/components/email-tags-input';
+import { useInviteMember, useOrganization } from '~/lib/hooks';
 import { apiFetch } from '~/lib/utils/csrf';
+import { collectEmails } from '~/lib/utils/email-input';
 
 const TEAM_COLORS = [
   { value: '#3B82F6', name: 'Blue' },
@@ -150,8 +152,10 @@ export function TeamsManagement() {
   const [activeTeam, setActiveTeam] = useState<Team | null>(null);
   const [addMemberIds, setAddMemberIds] = useState<string[]>([]);
   const [isAddingMembers, setIsAddingMembers] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteEmails, setInviteEmails] = useState<string[]>([]);
+  const [inviteEmailInput, setInviteEmailInput] = useState('');
   const [isInvitingMember, setIsInvitingMember] = useState(false);
+  const inviteMember = useInviteMember();
 
   // Delete team state
   const [deletingTeam, setDeletingTeam] = useState<Team | null>(null);
@@ -270,7 +274,8 @@ export function TeamsManagement() {
   const openAddMembers = (team: Team) => {
     setActiveTeam(team);
     setAddMemberIds([]);
-    setInviteEmail('');
+    setInviteEmails([]);
+    setInviteEmailInput('');
     setAddDialogOpen(true);
   };
 
@@ -358,7 +363,7 @@ export function TeamsManagement() {
     }
   };
 
-  const handleInviteMember = async () => {
+  const handleInviteMember = async (emailsOverride?: string[]) => {
     if (!canManageTeams) {
       toast.error('You do not have permission to invite members');
       return;
@@ -368,30 +373,58 @@ export function TeamsManagement() {
       return;
     }
 
-    const trimmedEmail = inviteEmail.trim();
-    if (!trimmedEmail) {
+    const emailsToInvite =
+      emailsOverride?.length
+        ? emailsOverride
+        : collectEmails(inviteEmails, inviteEmailInput);
+
+    if (emailsToInvite.length === 0) {
       return;
     }
 
     setIsInvitingMember(true);
 
     try {
-      const { error } = await apiFetch('/api/members/invite', {
-        method: 'POST',
-        body: JSON.stringify({
-          email: trimmedEmail,
-          role: 'member',
-          teamIds: [activeTeam.id],
-        }),
-      });
+      const results: Array<{ email: string; ok: boolean; error?: unknown }> = [];
 
-      if (error) {
-        throw new Error(error);
+      for (const email of emailsToInvite) {
+        try {
+          await inviteMember.mutateAsync({
+            email,
+            role: 'member',
+            teamIds: [activeTeam.id],
+          });
+          results.push({ email, ok: true });
+        } catch (error) {
+          results.push({ email, ok: false, error });
+        }
       }
 
-      toast.success(`Invite sent to ${trimmedEmail}`);
-      setInviteEmail('');
-      fetchInvites();
+      const failedInvites = results.filter((result) => !result.ok);
+      const successfulInvites = results.filter((result) => result.ok);
+
+      if (successfulInvites.length > 0) {
+        toast.success(
+          `Sent ${successfulInvites.length} invite${
+            successfulInvites.length > 1 ? 's' : ''
+          }.`
+        );
+        fetchInvites();
+      }
+
+      if (failedInvites.length > 0) {
+        const firstError = failedInvites[0]?.error;
+        toast.error(
+          firstError instanceof Error
+            ? firstError.message
+            : 'Failed to invite member'
+        );
+        setInviteEmails(failedInvites.map((result) => result.email));
+      } else {
+        setInviteEmails([]);
+      }
+
+      setInviteEmailInput('');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to invite member');
     } finally {
@@ -855,7 +888,8 @@ export function TeamsManagement() {
           if (!open) {
             setActiveTeam(null);
             setAddMemberIds([]);
-            setInviteEmail('');
+            setInviteEmails([]);
+            setInviteEmailInput('');
           }
         }}
       >
@@ -934,22 +968,23 @@ export function TeamsManagement() {
           <div className="grid gap-2">
             <Label>Invite by email</Label>
             <div className="flex flex-col gap-2 sm:flex-row">
-              <Input
-                type="email"
+              <EmailTagsInput
                 placeholder="name@company.com"
-                value={inviteEmail}
-                onChange={(event) => setInviteEmail(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    event.preventDefault();
-                    void handleInviteMember();
-                  }
-                }}
+                className="flex-1"
+                value={inviteEmails}
+                inputValue={inviteEmailInput}
+                onChange={setInviteEmails}
+                onInputChange={setInviteEmailInput}
+                onSubmit={(emails) => void handleInviteMember(emails)}
               />
               <Button
                 type="button"
-                onClick={handleInviteMember}
-                disabled={!activeTeam || !inviteEmail.trim() || isInvitingMember}
+                onClick={() => void handleInviteMember()}
+                disabled={
+                  !activeTeam ||
+                  collectEmails(inviteEmails, inviteEmailInput).length === 0 ||
+                  isInvitingMember
+                }
               >
                 {isInvitingMember ? 'Sending...' : 'Send Invite'}
               </Button>

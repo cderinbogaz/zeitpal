@@ -108,7 +108,6 @@ export async function getUserOrganization() {
          o.slug,
          o.country,
          o.region,
-         o.bundesland,
          o.default_vacation_days,
          o.carryover_enabled,
          o.carryover_max_days
@@ -128,16 +127,15 @@ export async function getUserOrganization() {
     memberId: result.member_id as string,
     role: result.role as string,
     customVacationDays: result.custom_vacation_days as number | null,
-    organization: {
-      id: result.organization_id as string,
-      name: result.organization_name as string,
-      slug: result.slug as string,
-      country: result.country as string,
-      region: result.region as string | null,
-      bundesland: result.bundesland as string | null,
-      defaultVacationDays: result.default_vacation_days as number,
-      carryoverEnabled: Boolean(result.carryover_enabled),
-      carryoverMaxDays: result.carryover_max_days as number,
+      organization: {
+        id: result.organization_id as string,
+        name: result.organization_name as string,
+        slug: result.slug as string,
+        country: result.country as string,
+        region: result.region as string | null,
+        defaultVacationDays: result.default_vacation_days as number,
+        carryoverEnabled: Boolean(result.carryover_enabled),
+        carryoverMaxDays: result.carryover_max_days as number,
     },
   };
 }

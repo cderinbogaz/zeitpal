@@ -208,6 +208,44 @@ export const BUNDESLAND_NAMES: Record<Bundesland, { en: string; de: string }> = 
   TH: { en: 'Thuringia', de: 'Thüringen' },
 };
 
+export const REGIONS_BY_COUNTRY: Partial<Record<CountryCode, Array<{ code: string; name: string }>>> = {
+  DE: Object.entries(BUNDESLAND_NAMES).map(([code, names]) => ({
+    code,
+    name: names.de,
+  })),
+  AT: [
+    { code: 'W', name: 'Wien' },
+    { code: 'NOE', name: 'Niederösterreich' },
+    { code: 'OOE', name: 'Oberösterreich' },
+    { code: 'SBG', name: 'Salzburg' },
+    { code: 'T', name: 'Tirol' },
+    { code: 'VBG', name: 'Vorarlberg' },
+    { code: 'KTN', name: 'Kärnten' },
+    { code: 'STMK', name: 'Steiermark' },
+    { code: 'BGLD', name: 'Burgenland' },
+  ],
+  CH: [
+    { code: 'ZH', name: 'Zürich' },
+    { code: 'BE', name: 'Bern' },
+    { code: 'LU', name: 'Luzern' },
+    { code: 'ZG', name: 'Zug' },
+    { code: 'BS', name: 'Basel-Stadt' },
+    { code: 'BL', name: 'Basel-Landschaft' },
+    { code: 'AG', name: 'Aargau' },
+    { code: 'SG', name: 'St. Gallen' },
+    { code: 'GR', name: 'Graubünden' },
+    { code: 'TI', name: 'Tessin' },
+    { code: 'VD', name: 'Waadt' },
+    { code: 'GE', name: 'Genf' },
+  ],
+  GB: [
+    { code: 'ENG', name: 'England' },
+    { code: 'SCT', name: 'Scotland' },
+    { code: 'WLS', name: 'Wales' },
+    { code: 'NIR', name: 'Northern Ireland' },
+  ],
+};
+
 // ============================================================
 // ONBOARDING TYPES
 // ============================================================
@@ -300,7 +338,8 @@ export interface Organization {
   id: string;
   name: string;
   slug: string;
-  bundesland: Bundesland;
+  country: CountryCode;
+  region: string | null;
   logoUrl: string | null;
   primaryColor: string;
   defaultVacationDays: number;
@@ -536,7 +575,7 @@ export type HolidayType = 'public' | 'company' | 'optional';
 export interface PublicHoliday {
   id: string;
   organizationId: string | null; // null = system-wide
-  bundesland: Bundesland | null; // null = nationwide
+  region: string | null; // null = nationwide
   date: string; // YYYY-MM-DD
   nameEn: string;
   nameDe: string;
@@ -656,7 +695,8 @@ export interface CreateLeaveRequestInput {
 export interface CreateOrganizationInput {
   name: string;
   slug: string;
-  bundesland: Bundesland;
+  country: CountryCode;
+  region?: string | null;
   defaultVacationDays?: number;
 }
 

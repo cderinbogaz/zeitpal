@@ -10,7 +10,8 @@ interface HolidaysResponse {
 
 interface UseHolidaysOptions {
   year?: number;
-  bundesland?: string;
+  country?: string;
+  region?: string;
 }
 
 async function fetchHolidays(
@@ -21,8 +22,11 @@ async function fetchHolidays(
   if (options.year) {
     params.set('year', options.year.toString());
   }
-  if (options.bundesland) {
-    params.set('bundesland', options.bundesland);
+  if (options.country) {
+    params.set('country', options.country);
+  }
+  if (options.region) {
+    params.set('region', options.region);
   }
 
   const url = `/api/holidays${params.toString() ? `?${params}` : ''}`;
@@ -40,11 +44,11 @@ async function fetchHolidays(
 }
 
 export function useHolidays(options: UseHolidaysOptions = {}) {
-  const { year = new Date().getFullYear(), bundesland } = options;
+  const { year = new Date().getFullYear(), country, region } = options;
 
   return useQuery({
-    queryKey: ['holidays', { year, bundesland }],
-    queryFn: () => fetchHolidays({ year, bundesland }),
+    queryKey: ['holidays', { year, country, region }],
+    queryFn: () => fetchHolidays({ year, country, region }),
     staleTime: 24 * 60 * 60 * 1000, // 24 hours - holidays don't change
   });
 }

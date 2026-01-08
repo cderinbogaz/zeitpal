@@ -71,7 +71,7 @@ interface Holiday {
   date: string;
   nameEn: string;
   nameDe: string;
-  bundesland: string | null;
+  region: string | null;
   type: string;
   isHalfDay: boolean;
   isCompanyHoliday: boolean;
@@ -529,7 +529,7 @@ export function HolidaysManagement() {
                       <Badge variant="secondary">
                         {holiday.isNational
                           ? 'National'
-                          : holiday.bundesland || 'Regional'}
+                          : holiday.region || 'Regional'}
                       </Badge>
                     </TableCell>
                   </TableRow>

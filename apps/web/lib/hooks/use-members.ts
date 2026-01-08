@@ -2,11 +2,38 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
-import type { OrganizationMember, OrganizationRole, MemberStatus } from '~/lib/types';
+import type { OrganizationRole, MemberStatus } from '~/lib/types';
 import { getCsrfToken } from '~/lib/utils/csrf';
 
+export interface MemberListItem {
+  id: string;
+  role: string;
+  status: string;
+  joinedAt: string | null;
+  user: {
+    id: string;
+    name: string | null;
+    email: string;
+    avatarUrl: string | null;
+  };
+  teamNames: string[];
+}
+
+export interface MemberInvite {
+  id: string;
+  email: string;
+  role: string;
+  expiresAt: string;
+  createdAt: string;
+  team: { id: string; name: string } | null;
+}
+
 interface MembersResponse {
-  data: OrganizationMember[];
+  data: MemberListItem[];
+}
+
+interface MemberInvitesResponse {
+  data: MemberInvite[];
 }
 
 interface InviteMemberInput {
@@ -21,7 +48,7 @@ interface UpdateMemberInput {
   status?: MemberStatus;
 }
 
-async function fetchMembers(): Promise<OrganizationMember[]> {
+async function fetchMembers(): Promise<MemberListItem[]> {
   const response = await fetch('/api/members');
 
   if (!response.ok) {
@@ -32,7 +59,21 @@ async function fetchMembers(): Promise<OrganizationMember[]> {
   }
 
   const result: MembersResponse = await response.json();
-  return result.data;
+  return result.data ?? [];
+}
+
+async function fetchMemberInvites(): Promise<MemberInvite[]> {
+  const response = await fetch('/api/members/invites');
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      return [];
+    }
+    throw new Error('Failed to fetch invites');
+  }
+
+  const result: MemberInvitesResponse = await response.json();
+  return result.data ?? [];
 }
 
 async function inviteMember(input: InviteMemberInput): Promise<void> {
@@ -51,7 +92,7 @@ async function inviteMember(input: InviteMemberInput): Promise<void> {
   }
 }
 
-async function updateMember(input: UpdateMemberInput): Promise<OrganizationMember> {
+async function updateMember(input: UpdateMemberInput): Promise<MemberListItem> {
   const { memberId, ...data } = input;
   const response = await fetch(`/api/members/${memberId}`, {
     method: 'PATCH',
@@ -68,7 +109,10 @@ async function updateMember(input: UpdateMemberInput): Promise<OrganizationMembe
   }
 
   const result = await response.json();
-  return result.data;
+  return {
+    ...result.data,
+    teamNames: result.data?.teamNames ?? [],
+  };
 }
 
 async function removeMember(memberId: string): Promise<void> {
@@ -89,6 +133,14 @@ export function useMembers() {
   return useQuery({
     queryKey: ['members'],
     queryFn: fetchMembers,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  });
+}
+
+export function useMemberInvites() {
+  return useQuery({
+    queryKey: ['invites'],
+    queryFn: fetchMemberInvites,
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 }

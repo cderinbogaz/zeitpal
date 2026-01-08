@@ -232,8 +232,8 @@ export function PoliciesManagement() {
                 control={form.control}
                 name="carryoverEnabled"
                 render={({ field }) => (
-                  <FormItem className="flex items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
+                  <FormItem className="flex flex-row items-center justify-between gap-x-4 rounded-lg border p-4">
+                    <div className="flex-1 space-y-0.5 text-left">
                       <FormLabel className="text-base">
                         Allow Vacation Carryover
                       </FormLabel>
@@ -338,8 +338,8 @@ export function PoliciesManagement() {
                 control={form.control}
                 name="requireApproval"
                 render={({ field }) => (
-                  <FormItem className="flex items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
+                  <FormItem className="flex flex-row items-center justify-between gap-x-4 rounded-lg border p-4">
+                    <div className="flex-1 space-y-0.5 text-left">
                       <FormLabel className="text-base">
                         Require Approval for Leave Requests
                       </FormLabel>

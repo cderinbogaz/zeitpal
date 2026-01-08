@@ -22,14 +22,16 @@ const createOrganizationSchema = z.object({
     .string()
     .min(2)
     .regex(/^[a-z0-9-]+$/, 'Only lowercase letters, numbers, and hyphens'),
-  bundesland: z.string().min(2).max(2),
+  country: z.string().min(2).max(5).default('DE'),
+  region: z.string().min(1).max(10).nullable().optional(),
   defaultVacationDays: z.coerce.number().min(20).max(50).default(30),
 });
 
 // Validation schema for updating an organization
 const updateOrganizationSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').optional(),
-  bundesland: z.string().min(2).max(2).optional(),
+  country: z.string().min(2).max(5).optional(),
+  region: z.string().min(1).max(10).nullable().optional(),
   defaultVacationDays: z.coerce.number().min(20).max(50).optional(),
   carryoverEnabled: z.boolean().optional(),
   carryoverMaxDays: z.coerce.number().min(0).max(30).optional(),
@@ -75,7 +77,8 @@ export async function GET(_request: NextRequest) {
     id: result.id,
     name: result.name,
     slug: result.slug,
-    bundesland: result.bundesland,
+    country: result.country,
+    region: result.region ?? result.bundesland ?? null,
     logoUrl: result.logo_url,
     primaryColor: result.primary_color,
     defaultVacationDays: result.default_vacation_days,
@@ -109,7 +112,7 @@ export async function POST(request: NextRequest) {
     return validationError(parsed.error.flatten());
   }
 
-  const { name, slug, bundesland, defaultVacationDays } = parsed.data;
+  const { name, slug, defaultVacationDays, country, region: regionInput } = parsed.data;
 
   const { env } = getCloudflareContext();
   const db = env.DB;
@@ -141,17 +144,29 @@ export async function POST(request: NextRequest) {
   const orgId = crypto.randomUUID();
   const memberId = crypto.randomUUID();
   const now = new Date().toISOString();
+  const region = regionInput ?? (country === 'DE' ? 'BY' : null);
+  const bundeslandValue = country === 'DE' ? (region ?? 'BY') : '';
 
   // Create organization and add user as admin in a batch
   await db.batch([
     db
       .prepare(
         `INSERT INTO organizations (
-          id, name, slug, bundesland, default_vacation_days,
+          id, name, slug, country, region, bundesland, default_vacation_days,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)`
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
-      .bind(orgId, name, slug, bundesland, defaultVacationDays, now, now),
+      .bind(
+        orgId,
+        name,
+        slug,
+        country,
+        region,
+        bundeslandValue,
+        defaultVacationDays,
+        now,
+        now
+      ),
 
     db
       .prepare(
@@ -202,7 +217,8 @@ export async function POST(request: NextRequest) {
     id: orgId,
     name,
     slug,
-    bundesland,
+    country,
+    region,
   });
 }
 
@@ -250,6 +266,43 @@ export async function PATCH(request: NextRequest) {
 
   const updates = parsed.data;
   const now = new Date().toISOString();
+  const hasLocationUpdates =
+    updates.country !== undefined ||
+    updates.region !== undefined;
+
+  let currentCountry: string | null = null;
+  let currentRegion: string | null = null;
+
+  if (hasLocationUpdates) {
+    const current = await db
+      .prepare('SELECT country, region FROM organizations WHERE id = ?')
+      .bind(membership.organization_id)
+      .first<{ country: string; region: string | null }>();
+
+    currentCountry = current?.country ?? 'DE';
+    currentRegion = current?.region ?? null;
+  }
+
+  let nextCountry = currentCountry ?? 'DE';
+  let nextRegion = currentRegion;
+
+  if (updates.country !== undefined) {
+    nextCountry = updates.country;
+  }
+
+  let regionInput: string | null | undefined;
+  if (updates.region !== undefined) {
+    regionInput = updates.region;
+  }
+
+  let shouldUpdateRegion = false;
+  if (regionInput !== undefined) {
+    nextRegion = regionInput;
+    shouldUpdateRegion = true;
+  } else if (updates.country !== undefined) {
+    nextRegion = null;
+    shouldUpdateRegion = true;
+  }
 
   // Build dynamic update query
   const setClauses: string[] = [];
@@ -259,9 +312,18 @@ export async function PATCH(request: NextRequest) {
     setClauses.push('name = ?');
     params.push(updates.name);
   }
-  if (updates.bundesland !== undefined) {
+  if (updates.country !== undefined) {
+    setClauses.push('country = ?');
+    params.push(nextCountry);
+  }
+  if (shouldUpdateRegion) {
+    setClauses.push('region = ?');
+    params.push(nextRegion);
+  }
+  if (hasLocationUpdates) {
+    const nextBundesland = nextCountry === 'DE' ? (nextRegion ?? '') : '';
     setClauses.push('bundesland = ?');
-    params.push(updates.bundesland);
+    params.push(nextBundesland);
   }
   if (updates.defaultVacationDays !== undefined) {
     setClauses.push('default_vacation_days = ?');
@@ -319,7 +381,8 @@ export async function PATCH(request: NextRequest) {
     id: updated.id,
     name: updated.name,
     slug: updated.slug,
-    bundesland: updated.bundesland,
+    country: updated.country,
+    region: updated.region ?? updated.bundesland ?? null,
     defaultVacationDays: updated.default_vacation_days,
     carryoverEnabled: Boolean(updated.carryover_enabled),
     carryoverMaxDays: updated.carryover_max_days,

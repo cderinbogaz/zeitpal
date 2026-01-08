@@ -36,7 +36,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@kit/ui/dropdown-menu';
-import { Input } from '@kit/ui/input';
 import { Label } from '@kit/ui/label';
 import {
   Select,
@@ -55,26 +54,16 @@ import {
 } from '@kit/ui/table';
 import { Trans } from '@kit/ui/trans';
 
-import type { OrganizationRole, MemberStatus } from '~/lib/types';
-import { useInviteMember } from '~/lib/hooks/use-members';
-
-// TODO: Replace with React Query
-const mockMembers: {
-  id: string;
-  user: { id: string; name: string; email: string; avatarUrl: string | null };
-  role: OrganizationRole;
-  status: MemberStatus;
-  joinedAt: string;
-  teamNames: string[];
-}[] = [];
-
-const mockInvites: {
-  id: string;
-  email: string;
-  role: OrganizationRole;
-  expiresAt: string;
-  createdAt: string;
-}[] = [];
+import { EmailTagsInput } from '~/components/email-tags-input';
+import type { OrganizationRole } from '~/lib/types';
+import {
+  useInviteMember,
+  useMemberInvites,
+  useMembers,
+  useRemoveMember,
+  useUpdateMember,
+} from '~/lib/hooks/use-members';
+import { collectEmails } from '~/lib/utils/email-input';
 
 const roleColors: Record<OrganizationRole, 'default' | 'secondary' | 'outline'> = {
   admin: 'default',
@@ -94,10 +83,19 @@ function getInitials(name: string | null): string {
 
 export function MembersManagement() {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteEmails, setInviteEmails] = useState<string[]>([]);
+  const [inviteEmailInput, setInviteEmailInput] = useState('');
   const [inviteRole, setInviteRole] = useState<OrganizationRole>('member');
+  const [isInviting, setIsInviting] = useState(false);
   const inviteMember = useInviteMember();
-  const isInviting = inviteMember.isPending;
+  const updateMember = useUpdateMember();
+  const removeMember = useRemoveMember();
+  const { data: members = [], isLoading: isMembersLoading, error: membersError } = useMembers();
+  const {
+    data: invites = [],
+    isLoading: isInvitesLoading,
+    error: invitesError,
+  } = useMemberInvites();
 
   // Member removal confirmation state
   const [removingMember, setRemovingMember] = useState<{
@@ -113,38 +111,81 @@ export function MembersManagement() {
   } | null>(null);
   const [isCancellingInvite, setIsCancellingInvite] = useState(false);
 
-  const handleInvite = async () => {
+  const handleInvite = async (emailsOverride?: string[]) => {
+    const emailsToInvite =
+      emailsOverride?.length ? emailsOverride : collectEmails(inviteEmails, inviteEmailInput);
+
     try {
-      const email = inviteEmail.trim();
-      if (!email) {
+      if (emailsToInvite.length === 0) {
         return;
       }
 
-      await inviteMember.mutateAsync({ email, role: inviteRole });
-      toast.success(<Trans i18nKey="admin:members.inviteSent" />);
-      setInviteDialogOpen(false);
-      setInviteEmail('');
-      setInviteRole('member');
+      setIsInviting(true);
+      const results: Array<{ email: string; ok: boolean; error?: unknown }> = [];
+
+      for (const email of emailsToInvite) {
+        try {
+          await inviteMember.mutateAsync({ email, role: inviteRole });
+          results.push({ email, ok: true });
+        } catch (error) {
+          results.push({ email, ok: false, error });
+        }
+      }
+
+      const failedInvites = results.filter((result) => !result.ok);
+      const successfulInvites = results.filter((result) => result.ok);
+
+      if (successfulInvites.length > 0) {
+        toast.success(
+          <Trans
+            i18nKey="admin:members.inviteSent"
+            count={successfulInvites.length}
+          />
+        );
+      }
+
+      if (failedInvites.length > 0) {
+        const firstError = failedInvites[0]?.error;
+        toast.error(
+          firstError instanceof Error
+            ? firstError.message
+            : 'Failed to invite member'
+        );
+        setInviteEmails(failedInvites.map((result) => result.email));
+      } else {
+        setInviteDialogOpen(false);
+        setInviteEmails([]);
+        setInviteRole('member');
+      }
+
+      setInviteEmailInput('');
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : 'Failed to invite member'
       );
+    } finally {
+      setIsInviting(false);
     }
   };
 
   const handleRoleChange = async (memberId: string, newRole: OrganizationRole) => {
-    // TODO: Implement API call
-    console.log('Changing role:', { memberId, newRole });
+    try {
+      await updateMember.mutateAsync({ memberId, role: newRole });
+      toast.success('Role updated');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update role');
+    }
   };
 
   const handleRemoveMember = async () => {
     if (!removingMember) return;
     setIsRemovingMember(true);
     try {
-      // TODO: Implement API call
-      console.log('Removing member:', removingMember.id);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await removeMember.mutateAsync(removingMember.id);
       setRemovingMember(null);
+      toast.success('Member removed');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to remove member');
     } finally {
       setIsRemovingMember(false);
     }
@@ -169,7 +210,7 @@ export function MembersManagement() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold">
-            {mockMembers.length} <Trans i18nKey="admin:members.membersCount" />
+            {members.length} <Trans i18nKey="admin:members.membersCount" />
           </h2>
         </div>
 
@@ -195,12 +236,15 @@ export function MembersManagement() {
                 <Label htmlFor="email">
                   <Trans i18nKey="admin:members.inviteDialog.email" />
                 </Label>
-                <Input
+                <EmailTagsInput
                   id="email"
-                  type="email"
+                  ariaLabel="Email address"
                   placeholder="colleague@company.com"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
+                  value={inviteEmails}
+                  inputValue={inviteEmailInput}
+                  onChange={setInviteEmails}
+                  onInputChange={setInviteEmailInput}
+                  onSubmit={(emails) => void handleInvite(emails)}
                 />
               </div>
 
@@ -238,8 +282,8 @@ export function MembersManagement() {
                 <Trans i18nKey="common:cancel" />
               </Button>
               <Button
-                onClick={handleInvite}
-                disabled={!inviteEmail || isInviting}
+                onClick={() => void handleInvite()}
+                disabled={!collectEmails(inviteEmails, inviteEmailInput).length || isInviting}
               >
                 {isInviting ? (
                   <Trans i18nKey="admin:members.inviteDialog.sending" />
@@ -253,7 +297,7 @@ export function MembersManagement() {
       </div>
 
       {/* Pending Invites */}
-      {mockInvites.length > 0 && (
+      {(isInvitesLoading || invitesError || invites.length > 0) && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -278,28 +322,53 @@ export function MembersManagement() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mockInvites.map((invite) => (
-                  <TableRow key={invite.id}>
-                    <TableCell>{invite.email}</TableCell>
-                    <TableCell>
-                      <Badge variant={roleColors[invite.role]}>
-                        <Trans i18nKey={`admin:members.roles.${invite.role}`} />
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {format(new Date(invite.expiresAt), 'MMM d, yyyy')}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setCancellingInvite({ id: invite.id, email: invite.email })}
-                      >
-                        <Trans i18nKey="common:cancel" />
-                      </Button>
+                {isInvitesLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-muted-foreground">
+                      Loading invites...
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : invitesError ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-destructive">
+                      {invitesError instanceof Error
+                        ? invitesError.message
+                        : 'Failed to load invites'}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  invites.map((invite) => (
+                    <TableRow key={invite.id}>
+                      <TableCell>{invite.email}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            roleColors[invite.role as OrganizationRole] ?? 'outline'
+                          }
+                        >
+                          <Trans i18nKey={`admin:members.roles.${invite.role}`} />
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {format(new Date(invite.expiresAt), 'MMM d, yyyy')}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            setCancellingInvite({
+                              id: invite.id,
+                              email: invite.email,
+                            })
+                          }
+                        >
+                          <Trans i18nKey="common:cancel" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </CardContent>
@@ -328,89 +397,122 @@ export function MembersManagement() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockMembers.map((member) => (
-                <TableRow key={member.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={member.user.avatarUrl || undefined} />
-                        <AvatarFallback>
-                          {getInitials(member.user.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium">{member.user.name}</p>
-                        <p className="text-muted-foreground text-sm">
-                          {member.user.email}
-                        </p>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={roleColors[member.role]}>
-                      <Trans i18nKey={`admin:members.roles.${member.role}`} />
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {member.teamNames.map((team) => (
-                        <Badge key={team} variant="outline" className="text-xs">
-                          {team}
-                        </Badge>
-                      ))}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {format(new Date(member.joinedAt), 'MMM d, yyyy')}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Actions</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
-                          <User className="mr-2 h-4 w-4" />
-                          <Trans i18nKey="admin:members.actions.viewProfile" />
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => handleRoleChange(member.id, 'admin')}
-                          disabled={member.role === 'admin'}
-                        >
-                          <Shield className="mr-2 h-4 w-4" />
-                          <Trans i18nKey="admin:members.actions.makeAdmin" />
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handleRoleChange(member.id, 'manager')}
-                          disabled={member.role === 'manager'}
-                        >
-                          <Shield className="mr-2 h-4 w-4" />
-                          <Trans i18nKey="admin:members.actions.makeManager" />
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handleRoleChange(member.id, 'member')}
-                          disabled={member.role === 'member'}
-                        >
-                          <User className="mr-2 h-4 w-4" />
-                          <Trans i18nKey="admin:members.actions.makeMember" />
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() => setRemovingMember({ id: member.id, name: member.user.name })}
-                        >
-                          <UserMinus className="mr-2 h-4 w-4" />
-                          <Trans i18nKey="admin:members.actions.remove" />
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+              {isMembersLoading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground">
+                    Loading members...
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : membersError ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-destructive">
+                    {membersError instanceof Error
+                      ? membersError.message
+                      : 'Failed to load members'}
+                  </TableCell>
+                </TableRow>
+              ) : members.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground">
+                    No members found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                members.map((member) => {
+                  const displayName = member.user.name ?? member.user.email;
+                  return (
+                    <TableRow key={member.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={member.user.avatarUrl || undefined} />
+                            <AvatarFallback>
+                              {getInitials(member.user.name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-medium">{displayName}</p>
+                            <p className="text-muted-foreground text-sm">
+                              {member.user.email}
+                            </p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={roleColors[member.role as OrganizationRole] ?? 'outline'}>
+                          <Trans i18nKey={`admin:members.roles.${member.role}`} />
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {member.teamNames.length > 0 ? (
+                            member.teamNames.map((team) => (
+                              <Badge key={team} variant="outline" className="text-xs">
+                                {team}
+                              </Badge>
+                            ))
+                          ) : (
+                            <span className="text-muted-foreground text-sm">No teams</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {member.joinedAt
+                          ? format(new Date(member.joinedAt), 'MMM d, yyyy')
+                          : '-'}
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">Actions</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem>
+                              <User className="mr-2 h-4 w-4" />
+                              <Trans i18nKey="admin:members.actions.viewProfile" />
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => handleRoleChange(member.id, 'admin')}
+                              disabled={member.role === 'admin'}
+                            >
+                              <Shield className="mr-2 h-4 w-4" />
+                              <Trans i18nKey="admin:members.actions.makeAdmin" />
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleRoleChange(member.id, 'manager')}
+                              disabled={member.role === 'manager'}
+                            >
+                              <Shield className="mr-2 h-4 w-4" />
+                              <Trans i18nKey="admin:members.actions.makeManager" />
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleRoleChange(member.id, 'member')}
+                              disabled={member.role === 'member'}
+                            >
+                              <User className="mr-2 h-4 w-4" />
+                              <Trans i18nKey="admin:members.actions.makeMember" />
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={() =>
+                                setRemovingMember({ id: member.id, name: displayName })
+                              }
+                            >
+                              <UserMinus className="mr-2 h-4 w-4" />
+                              <Trans i18nKey="admin:members.actions.remove" />
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
             </TableBody>
           </Table>
         </CardContent>

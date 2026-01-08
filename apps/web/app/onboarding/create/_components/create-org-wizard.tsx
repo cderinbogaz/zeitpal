@@ -32,9 +32,7 @@ import {
 import { cn } from '@kit/ui/utils';
 
 import pathsConfig from '~/config/paths.config';
-import { BUNDESLAND_NAMES, type Bundesland } from '~/lib/types';
-
-const bundeslandOptions = Object.entries(BUNDESLAND_NAMES) as [Bundesland, { en: string; de: string }][];
+import { COUNTRIES, REGIONS_BY_COUNTRY, type CountryCode } from '~/lib/types';
 
 const step1Schema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -45,7 +43,8 @@ const step1Schema = z.object({
 });
 
 const step2Schema = z.object({
-  bundesland: z.string().min(1, 'Please select a federal state'),
+  country: z.string().min(1, 'Please select a country'),
+  region: z.string().optional(),
 });
 
 const step3Schema = z.object({
@@ -58,7 +57,7 @@ type FormData = z.infer<typeof fullSchema>;
 
 const steps = [
   { title: 'Organization', description: 'Basic information' },
-  { title: 'Location', description: 'Federal state' },
+  { title: 'Location', description: 'Country and region' },
   { title: 'Policy', description: 'Leave settings' },
 ];
 
@@ -77,13 +76,18 @@ export function CreateOrgWizard() {
     defaultValues: {
       name: '',
       slug: '',
-      bundesland: '',
+      country: 'DE',
+      region: '',
       defaultVacationDays: 30,
     },
     mode: 'onChange',
   });
 
   const _watchName = form.watch('name');
+  const selectedCountry = form.watch('country') as CountryCode;
+  const countryConfig = COUNTRIES.find((country) => country.code === selectedCountry);
+  const regionOptions = REGIONS_BY_COUNTRY[selectedCountry] || [];
+  const hasRegions = countryConfig?.hasRegionalHolidays && regionOptions.length > 0;
 
   const checkSlugAvailability = useCallback(async (slug: string) => {
     if (!slug || slug.length < 2) {
@@ -165,6 +169,11 @@ export function CreateOrgWizard() {
     debouncedCheckSlug(value);
   };
 
+  const handleCountryChange = (value: string) => {
+    form.setValue('country', value, { shouldValidate: true });
+    form.setValue('region', '');
+  };
+
   const ensureSlugAvailable = useCallback(async () => {
     const slug = form.getValues('slug');
 
@@ -189,7 +198,7 @@ export function CreateOrgWizard() {
         fieldsToValidate = ['name', 'slug'];
         break;
       case 1:
-        fieldsToValidate = ['bundesland'];
+        fieldsToValidate = ['country', 'region'];
         break;
       case 2:
         fieldsToValidate = ['defaultVacationDays'];
@@ -211,6 +220,11 @@ export function CreateOrgWizard() {
       }
     }
 
+    if (currentStep === 1 && hasRegions && !form.getValues('region')) {
+      form.setError('region', { message: 'Please select a state/region' });
+      return;
+    }
+
     setCurrentStep((prev) => Math.min(prev + 1, steps.length - 1));
   };
 
@@ -225,10 +239,16 @@ export function CreateOrgWizard() {
         return;
       }
 
+      if (hasRegions && !data.region) {
+        form.setError('region', { message: 'Please select a state/region' });
+        return;
+      }
+
       await createOrganization.mutateAsync({
         name: data.name,
         slug: data.slug,
-        bundesland: data.bundesland as import('~/lib/types').Bundesland,
+        country: data.country as CountryCode,
+        region: data.region ? data.region : undefined,
         defaultVacationDays: data.defaultVacationDays,
       });
 
@@ -330,32 +350,64 @@ export function CreateOrgWizard() {
             <div className="space-y-4">
               <FormField
                 control={form.control}
-                name="bundesland"
+                name="country"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Federal State (Bundesland)</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormLabel>Country</FormLabel>
+                    <Select onValueChange={handleCountryChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select your state" />
+                          <SelectValue placeholder="Select your country" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {bundeslandOptions.map(([code, names]) => (
-                          <SelectItem key={code} value={code}>
-                            {names.de}
+                        {COUNTRIES.filter((country) => country.isActive).map((country) => (
+                          <SelectItem key={country.code} value={country.code}>
+                            <span className="flex items-center gap-2">
+                              <span>{country.flag}</span>
+                              <span>{country.nameEn}</span>
+                            </span>
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                     <FormDescription>
-                      This determines which public holidays apply to your organization.
-                      Each German state has different holidays.
+                      Where is your organization based?
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
+              {hasRegions && (
+                <FormField
+                  control={form.control}
+                  name="region"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>State / Region</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select your state/region" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {regionOptions.map((region) => (
+                            <SelectItem key={region.code} value={region.code}>
+                              {region.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Regional public holidays may vary.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </div>
           )}
 

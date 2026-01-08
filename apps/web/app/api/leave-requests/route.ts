@@ -208,21 +208,25 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Get organization's bundesland for holiday calculation
+  // Get organization's country/region for holiday calculation
   const org = await db
-    .prepare('SELECT bundesland FROM organizations WHERE id = ?')
+    .prepare('SELECT country, region, bundesland FROM organizations WHERE id = ?')
     .bind(organizationId)
-    .first<{ bundesland: string }>();
+    .first<{ country: string; region: string | null; bundesland: string | null }>();
 
-  // Get holidays for the organization's bundesland
+  const orgCountry = org?.country ?? 'DE';
+  const orgRegion = org?.region ?? org?.bundesland ?? null;
+
+  // Get holidays for the organization's region
   const holidayResults = await db
     .prepare(
       `SELECT date FROM public_holidays
        WHERE (organization_id IS NULL OR organization_id = ?)
+       AND (organization_id IS NOT NULL OR country = ?)
        AND (bundesland IS NULL OR bundesland = ?)
        AND date BETWEEN ? AND ?`
     )
-    .bind(organizationId, org?.bundesland, startDate, endDate)
+    .bind(organizationId, orgCountry, orgRegion, startDate, endDate)
     .all();
 
   const holidays = holidayResults.results.map(

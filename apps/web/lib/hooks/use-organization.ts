@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
-import type { Organization, Bundesland } from '~/lib/types';
+import type { Organization, CountryCode } from '~/lib/types';
 import { getCsrfToken } from '~/lib/utils/csrf';
 
 interface OrganizationResponse {
@@ -12,20 +12,22 @@ interface OrganizationResponse {
 interface CreateOrganizationInput {
   name: string;
   slug: string;
-  bundesland: Bundesland;
+  country: CountryCode;
+  region?: string | null;
   defaultVacationDays: number;
 }
 
 interface UpdateOrganizationInput {
   name?: string;
-  bundesland?: Bundesland;
+  country?: CountryCode;
+  region?: string | null;
   defaultVacationDays?: number;
   carryoverEnabled?: boolean;
   carryoverMaxDays?: number;
   carryoverExpiryDate?: string;
   sickLeaveAuThreshold?: number;
   requireApproval?: boolean;
-  autoApproveThreshold?: number;
+  autoApproveThreshold?: number | null;
 }
 
 async function fetchOrganization(): Promise<Organization | null> {

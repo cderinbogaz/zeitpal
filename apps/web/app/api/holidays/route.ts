@@ -27,7 +27,8 @@ interface HolidayRow {
 
 const querySchema = z.object({
   year: z.coerce.number().min(2020).max(2030).optional(),
-  bundesland: z.string().min(2).max(2).optional(),
+  country: z.string().min(2).max(5).optional(),
+  region: z.string().min(1).max(10).optional(),
   includeCompany: z.coerce.boolean().optional(),
 });
 
@@ -41,7 +42,7 @@ const createHolidaySchema = z.object({
 
 /**
  * GET /api/holidays
- * Get public holidays for a given year and/or bundesland
+ * Get public holidays for a given year and/or region
  */
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -53,7 +54,8 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const query = querySchema.safeParse({
     year: searchParams.get('year') ?? undefined,
-    bundesland: searchParams.get('bundesland') ?? undefined,
+    country: searchParams.get('country') ?? undefined,
+    region: searchParams.get('region') ?? searchParams.get('bundesland') ?? undefined,
     includeCompany: searchParams.get('includeCompany') ?? undefined,
   });
 
@@ -61,23 +63,24 @@ export async function GET(request: NextRequest) {
     return validationError(query.error.flatten());
   }
 
-  const { year, bundesland, includeCompany } = query.data;
+  const { year, country, region, includeCompany } = query.data;
   const { env } = getCloudflareContext();
   const db = env.DB;
 
   // Get user's organization
   const membership = await db
     .prepare(
-      `SELECT om.organization_id, o.bundesland
+      `SELECT om.organization_id, o.country, o.region, o.bundesland
        FROM organization_members om
        JOIN organizations o ON om.organization_id = o.id
        WHERE om.user_id = ? AND om.status = 'active'
        LIMIT 1`
     )
     .bind(session.user.id)
-    .first<{ organization_id: string; bundesland: string }>();
+    .first<{ organization_id: string; country: string; region: string | null; bundesland: string | null }>();
 
-  const effectiveBundesland = bundesland ?? membership?.bundesland;
+  const effectiveCountry = country ?? membership?.country ?? 'DE';
+  const effectiveRegion = region ?? membership?.region ?? membership?.bundesland ?? null;
   const effectiveYear = year ?? new Date().getFullYear();
 
   // Build query based on parameters
@@ -88,15 +91,19 @@ export async function GET(request: NextRequest) {
     // Include system holidays + company-specific holidays
     sql += ' AND (organization_id IS NULL OR organization_id = ?)';
     params.push(membership.organization_id);
+    sql += ' AND (organization_id IS NOT NULL OR country = ?)';
+    params.push(effectiveCountry);
   } else {
     // Only system holidays
     sql += ' AND organization_id IS NULL';
+    sql += ' AND country = ?';
+    params.push(effectiveCountry);
   }
 
-  if (effectiveBundesland) {
-    // Get holidays that apply to this bundesland (national or specific to the state)
+  if (effectiveRegion) {
+    // Get holidays that apply to this region (national or specific to the state)
     sql += ' AND (bundesland IS NULL OR bundesland = ?)';
-    params.push(effectiveBundesland);
+    params.push(effectiveRegion);
   }
 
   sql += ' ORDER BY date ASC';
@@ -111,7 +118,7 @@ export async function GET(request: NextRequest) {
     date: row.date,
     nameEn: row.name_en,
     nameDe: row.name_de,
-    bundesland: row.bundesland,
+    region: row.bundesland,
     type: row.type,
     isHalfDay: Boolean(row.is_half_day),
     isCompanyHoliday: row.organization_id !== null,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import Link from 'next/link';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -33,14 +33,13 @@ import { Switch } from '@kit/ui/switch';
 import { Trans } from '@kit/ui/trans';
 
 import { useOrganization, useUpdateOrganization } from '~/lib/hooks/use-organization';
-import { BUNDESLAND_NAMES, type Bundesland } from '~/lib/types';
-
-const bundeslandOptions = Object.entries(BUNDESLAND_NAMES) as [Bundesland, { en: string; de: string }][];
+import { COUNTRIES, REGIONS_BY_COUNTRY, type CountryCode } from '~/lib/types';
 
 const organizationSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   slug: z.string().min(2).regex(/^[a-z0-9-]+$/, 'Only lowercase letters, numbers, and hyphens'),
-  bundesland: z.string().min(1, 'Please select a federal state'),
+  country: z.string().min(1, 'Please select a country'),
+  region: z.string().optional(),
   defaultVacationDays: z.coerce.number().min(20).max(50),
   carryoverEnabled: z.boolean(),
   carryoverMaxDays: z.coerce.number().min(0).max(30),
@@ -54,7 +53,8 @@ type OrganizationFormData = z.infer<typeof organizationSchema>;
 const defaultFormValues: OrganizationFormData = {
   name: '',
   slug: '',
-  bundesland: '',
+  country: 'DE',
+  region: '',
   defaultVacationDays: 30,
   carryoverEnabled: true,
   carryoverMaxDays: 5,
@@ -78,7 +78,8 @@ export function OrganizationSettingsForm() {
       form.reset({
         name: organization.name || '',
         slug: organization.slug || '',
-        bundesland: organization.bundesland || '',
+        country: organization.country || 'DE',
+        region: organization.region || '',
         defaultVacationDays: organization.defaultVacationDays ?? 30,
         carryoverEnabled: organization.carryoverEnabled ?? true,
         carryoverMaxDays: organization.carryoverMaxDays ?? 5,
@@ -89,14 +90,57 @@ export function OrganizationSettingsForm() {
     }
   }, [organization, form]);
 
+  const selectedCountry = form.watch('country') as CountryCode;
+  const regionValue = form.watch('region');
+  const regionOptions = REGIONS_BY_COUNTRY[selectedCountry] || [];
+  const normalizedRegionValue = typeof regionValue === 'string' ? regionValue.trim() : '';
+  const hasRegions = regionOptions.length > 0 || normalizedRegionValue.length > 0;
+
+  const regionOptionsWithValue = useMemo(() => {
+    if (!normalizedRegionValue) {
+      return regionOptions;
+    }
+
+    if (regionOptions.some((option) => option.code === normalizedRegionValue)) {
+      return regionOptions;
+    }
+
+    return [{ code: normalizedRegionValue, name: normalizedRegionValue }, ...regionOptions];
+  }, [normalizedRegionValue, regionOptions]);
+
+  useEffect(() => {
+    if (!normalizedRegionValue || regionOptions.length === 0) {
+      return;
+    }
+
+    const match = regionOptions.find(
+      (option) => option.name.toLowerCase() === normalizedRegionValue.toLowerCase()
+    );
+
+    if (match) {
+      form.setValue('region', match.code, { shouldValidate: true });
+    }
+  }, [form, normalizedRegionValue, regionOptions]);
+
   const carryoverEnabled = form.watch('carryoverEnabled');
   const requireApproval = form.watch('requireApproval');
 
+  const handleCountryChange = (value: string) => {
+    form.setValue('country', value, { shouldValidate: true });
+    form.setValue('region', '');
+  };
+
   const onSubmit = async (data: OrganizationFormData) => {
+    if (hasRegions && !data.region) {
+      form.setError('region', { message: 'Please select a state/region' });
+      return;
+    }
+
     try {
       await updateOrganization.mutateAsync({
         name: data.name,
-        bundesland: data.bundesland as Bundesland,
+        country: data.country as CountryCode,
+        region: data.region ? data.region : null,
         defaultVacationDays: data.defaultVacationDays,
         carryoverEnabled: data.carryoverEnabled,
         carryoverMaxDays: data.carryoverMaxDays,
@@ -186,33 +230,74 @@ export function OrganizationSettingsForm() {
 
             <FormField
               control={form.control}
-              name="bundesland"
+              name="country"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
-                    <Trans i18nKey="admin:organization.bundesland" />
+                    <Trans i18nKey="admin:organization.country" defaults="Country" />
                   </FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select onValueChange={handleCountryChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select federal state" />
+                        <SelectValue placeholder="Select country" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {bundeslandOptions.map(([code, names]) => (
-                        <SelectItem key={code} value={code}>
-                          {names.de} ({names.en})
+                      {COUNTRIES.filter((country) => country.isActive).map((country) => (
+                        <SelectItem key={country.code} value={country.code}>
+                          <span className="flex items-center gap-2">
+                            <span>{country.flag}</span>
+                            <span>{country.nameEn}</span>
+                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   <FormDescription>
-                    Determines which public holidays apply to your organization
+                    <Trans
+                      i18nKey="admin:organization.countryHelp"
+                      defaults="Where is your organization based?"
+                    />
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
+
+            {hasRegions && (
+              <FormField
+                control={form.control}
+                name="region"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      <Trans i18nKey="admin:organization.region" defaults="State / Region" />
+                    </FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select state/region" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                    {regionOptionsWithValue.map((region) => (
+                      <SelectItem key={region.code} value={region.code}>
+                        {region.name}
+                      </SelectItem>
+                    ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      <Trans
+                        i18nKey="admin:organization.regionHelp"
+                        defaults="Regional public holidays may vary"
+                      />
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
           </CardContent>
         </Card>
 
@@ -402,6 +487,10 @@ function OrganizationFormSkeleton() {
           <Skeleton className="h-4 w-60" />
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-10 w-full" />
+          </div>
           <div className="space-y-2">
             <Skeleton className="h-4 w-24" />
             <Skeleton className="h-10 w-full" />

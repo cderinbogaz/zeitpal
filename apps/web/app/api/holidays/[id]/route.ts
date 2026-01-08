@@ -56,7 +56,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     date: holiday.date,
     nameEn: holiday.name_en,
     nameDe: holiday.name_de,
-    bundesland: holiday.bundesland,
+    region: holiday.bundesland,
     type: holiday.type,
     isHalfDay: Boolean(holiday.is_half_day),
     isCompanyHoliday: holiday.organization_id !== null,

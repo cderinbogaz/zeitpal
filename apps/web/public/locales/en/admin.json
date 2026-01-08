@@ -8,6 +8,10 @@
     "slug": "URL Slug",
     "bundesland": "Federal State",
     "selectBundesland": "Select federal state",
+    "country": "Country",
+    "countryHelp": "Where is your organization based?",
+    "region": "State / Region",
+    "regionHelp": "Regional public holidays may vary",
     "logo": "Organization Logo",
     "uploadLogo": "Upload Logo",
     "primaryColor": "Primary Color",
@@ -49,6 +53,7 @@
     "changeRole": "Change Role",
     "resendInvite": "Resend Invitation",
     "inviteSent": "Invitation sent",
+    "inviteSent_plural": "Invitations sent",
     "memberRemoved": "Member removed",
     "noMembers": "No members found",
     "roles": {
