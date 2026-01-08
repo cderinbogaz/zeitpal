@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { Suspense, useMemo } from 'react';
 
 import dynamic from 'next/dynamic';
 
@@ -46,27 +46,29 @@ export function RootProviders({
 
   return (
     <ReactQueryProvider>
-      <I18nProvider settings={i18nSettings} resolver={i18nResolver}>
-        <CaptchaProvider>
-          <CaptchaTokenSetter siteKey={captchaSiteKey} />
+      <Suspense fallback={null}>
+        <I18nProvider settings={i18nSettings} resolver={i18nResolver}>
+          <CaptchaProvider>
+            <CaptchaTokenSetter siteKey={captchaSiteKey} />
 
-          <AuthProvider>
-            <ThemeProvider
-              attribute="class"
-              enableSystem
-              disableTransitionOnChange
-              defaultTheme={theme}
-              enableColorScheme={false}
-            >
-              {children}
-            </ThemeProvider>
-          </AuthProvider>
-        </CaptchaProvider>
+            <AuthProvider>
+              <ThemeProvider
+                attribute="class"
+                enableSystem
+                disableTransitionOnChange
+                defaultTheme={theme}
+                enableColorScheme={false}
+              >
+                {children}
+              </ThemeProvider>
+            </AuthProvider>
+          </CaptchaProvider>
 
-        <If condition={featuresFlagConfig.enableVersionUpdater}>
-          <VersionUpdater />
-        </If>
-      </I18nProvider>
+          <If condition={featuresFlagConfig.enableVersionUpdater}>
+            <VersionUpdater />
+          </If>
+        </I18nProvider>
+      </Suspense>
     </ReactQueryProvider>
   );
 }
