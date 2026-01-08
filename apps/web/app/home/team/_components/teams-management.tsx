@@ -151,6 +151,7 @@ export function TeamsManagement() {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [activeTeam, setActiveTeam] = useState<Team | null>(null);
   const [addMemberIds, setAddMemberIds] = useState<string[]>([]);
+  const [addInviteIds, setAddInviteIds] = useState<string[]>([]);
   const [isAddingMembers, setIsAddingMembers] = useState(false);
   const [inviteEmails, setInviteEmails] = useState<string[]>([]);
   const [inviteEmailInput, setInviteEmailInput] = useState('');
@@ -164,6 +165,7 @@ export function TeamsManagement() {
   // Manage team members state
   const [manageMembersTeam, setManageMembersTeam] = useState<Team | null>(null);
   const [teamMembers, setTeamMembers] = useState<OrgMember[]>([]);
+  const [teamPendingInvites, setTeamPendingInvites] = useState<PendingInvite[]>([]);
   const [isLoadingTeamMembers, setIsLoadingTeamMembers] = useState(false);
   const [removingMember, setRemovingMember] = useState<{
     memberId: string;
@@ -265,6 +267,14 @@ export function TeamsManagement() {
     );
   };
 
+  const toggleAddInvite = (inviteId: string) => {
+    setAddInviteIds((prev) =>
+      prev.includes(inviteId)
+        ? prev.filter((id) => id !== inviteId)
+        : [...prev, inviteId]
+    );
+  };
+
   const notifyTeamsUpdated = () => {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('teams:updated'));
@@ -274,6 +284,7 @@ export function TeamsManagement() {
   const openAddMembers = (team: Team) => {
     setActiveTeam(team);
     setAddMemberIds([]);
+    setAddInviteIds([]);
     setInviteEmails([]);
     setInviteEmailInput('');
     setAddDialogOpen(true);
@@ -328,31 +339,54 @@ export function TeamsManagement() {
       return;
     }
 
-    if (!activeTeam || addMemberIds.length === 0) {
+    if (!activeTeam || (addMemberIds.length === 0 && addInviteIds.length === 0)) {
       return;
     }
 
     setIsAddingMembers(true);
 
     try {
-      const { error } = await apiFetch(
-        `/api/teams/${activeTeam.id}/members`,
-        {
-          method: 'POST',
-          body: JSON.stringify({ memberIds: addMemberIds }),
-        }
-      );
+      // Add existing organization members to the team
+      if (addMemberIds.length > 0) {
+        const { error } = await apiFetch(
+          `/api/teams/${activeTeam.id}/members`,
+          {
+            method: 'POST',
+            body: JSON.stringify({ memberIds: addMemberIds }),
+          }
+        );
 
-      if (error) {
-        throw new Error(error);
+        if (error) {
+          throw new Error(error);
+        }
       }
 
-      toast.success('Members added to team');
+      // Assign pending invites to the team
+      if (addInviteIds.length > 0) {
+        const invitePromises = addInviteIds.map((inviteId: string) =>
+          apiFetch(`/api/members/invites/${inviteId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ teamId: activeTeam.id }),
+          })
+        );
+
+        const results = await Promise.all(invitePromises);
+        const failed = results.filter((result) => result.error);
+
+        if (failed.length > 0) {
+          throw new Error(`Failed to assign ${failed.length} invite(s) to team`);
+        }
+      }
+
+      const total = addMemberIds.length + addInviteIds.length;
+      toast.success(`Added ${total} member${total > 1 ? 's' : ''} to team`);
       setAddDialogOpen(false);
       setActiveTeam(null);
       setAddMemberIds([]);
+      setAddInviteIds([]);
       fetchTeams();
       fetchMembers();
+      fetchInvites();
       notifyTeamsUpdated();
     } catch (err) {
       toast.error(
@@ -480,10 +514,12 @@ export function TeamsManagement() {
         throw new Error('Failed to load team members');
       }
       const data = await response.json();
-      setTeamMembers(data.data || []);
+      setTeamMembers(data.data?.members || []);
+      setTeamPendingInvites(data.data?.pendingInvites || []);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to load team members');
       setTeamMembers([]);
+      setTeamPendingInvites([]);
     } finally {
       setIsLoadingTeamMembers(false);
     }
@@ -897,6 +933,7 @@ export function TeamsManagement() {
           if (!open) {
             setActiveTeam(null);
             setAddMemberIds([]);
+            setAddInviteIds([]);
             setInviteEmails([]);
             setInviteEmailInput('');
           }
@@ -974,6 +1011,59 @@ export function TeamsManagement() {
             </div>
           </div>
 
+          {/* Pending Invites Section */}
+          <div className="grid gap-2 py-2">
+            <Label>
+              Assign pending invites
+            </Label>
+            <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border p-3">
+              {isInvitesLoading ? (
+                <div className="space-y-2">
+                  {[...Array(2)].map((_, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Skeleton className="h-4 w-4 rounded-sm" />
+                      <Skeleton className="h-4 w-32" />
+                    </div>
+                  ))}
+                </div>
+              ) : (() => {
+                // Filter out invites that are already assigned to this team
+                const unassignedInvites = invites.filter(
+                  (invite) => !invite.team || (activeTeam && invite.team.id !== activeTeam.id)
+                );
+
+                if (unassignedInvites.length === 0) {
+                  return (
+                    <p className="text-muted-foreground text-sm">
+                      No pending invites available to assign.
+                    </p>
+                  );
+                }
+
+                return unassignedInvites.map((invite) => (
+                  <label
+                    key={invite.id}
+                    className="flex cursor-pointer items-start gap-2"
+                  >
+                    <Checkbox
+                      checked={addInviteIds.includes(invite.id)}
+                      onCheckedChange={() => toggleAddInvite(invite.id)}
+                    />
+                    <div className="leading-tight">
+                      <p className="text-sm font-medium">{invite.email}</p>
+                      <p className="text-muted-foreground text-xs">
+                        {invite.team ? `Currently assigned to ${invite.team.name}` : 'Not assigned to any team'}
+                      </p>
+                    </div>
+                  </label>
+                ));
+              })()}
+            </div>
+            <p className="text-muted-foreground text-xs">
+              These are users who have been invited but haven&apos;t signed up yet.
+            </p>
+          </div>
+
           <div className="grid gap-2">
             <Label>Invite by email</Label>
             <div className="flex flex-col gap-2 sm:flex-row">
@@ -1013,7 +1103,7 @@ export function TeamsManagement() {
             </Button>
             <Button
               onClick={handleAddMembers}
-              disabled={!activeTeam || addMemberIds.length === 0 || isAddingMembers}
+              disabled={!activeTeam || (addMemberIds.length === 0 && addInviteIds.length === 0) || isAddingMembers}
             >
               {isAddingMembers ? 'Adding...' : 'Add Members'}
             </Button>
@@ -1028,6 +1118,7 @@ export function TeamsManagement() {
           if (!open) {
             setManageMembersTeam(null);
             setTeamMembers([]);
+            setTeamPendingInvites([]);
           }
         }}
       >
@@ -1048,7 +1139,7 @@ export function TeamsManagement() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="max-h-64 overflow-y-auto rounded-md border">
+          <div className="max-h-96 overflow-y-auto rounded-md border">
             {isLoadingTeamMembers ? (
               <div className="space-y-2 p-3">
                 {[...Array(3)].map((_, index) => (
@@ -1058,7 +1149,7 @@ export function TeamsManagement() {
                   </div>
                 ))}
               </div>
-            ) : teamMembers.length === 0 ? (
+            ) : teamMembers.length === 0 && teamPendingInvites.length === 0 ? (
               <div className="py-8 text-center">
                 <Users className="mx-auto h-8 w-8 text-muted-foreground/50" />
                 <p className="text-muted-foreground mt-2 text-sm">
@@ -1083,45 +1174,84 @@ export function TeamsManagement() {
                 </Button>
               </div>
             ) : (
-              <div className="divide-y">
-                {teamMembers.map((member) => (
-                  <div
-                    key={member.user.id}
-                    className="flex items-center justify-between p-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-sm font-medium">
-                        {(member.user.name || member.user.email)
-                          .charAt(0)
-                          .toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">
-                          {member.user.name || member.user.email}
-                        </p>
-                        <p className="text-muted-foreground text-xs">
-                          {member.user.email}
-                        </p>
-                      </div>
+              <div>
+                {teamMembers.length > 0 && (
+                  <div>
+                    <div className="bg-muted/50 px-3 py-2 text-xs font-semibold uppercase tracking-wider">
+                      Active Members ({teamMembers.length})
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={() =>
-                        setRemovingMember({
-                          memberId: member.user.id,
-                          memberName: member.user.name || member.user.email,
-                          teamId: manageMembersTeam!.id,
-                          teamName: manageMembersTeam!.name,
-                        })
-                      }
-                    >
-                      <UserMinus className="h-4 w-4" />
-                      <span className="sr-only">Remove member</span>
-                    </Button>
+                    <div className="divide-y">
+                      {teamMembers.map((member) => (
+                        <div
+                          key={member.user.id}
+                          className="flex items-center justify-between p-3"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-sm font-medium">
+                              {(member.user.name || member.user.email)
+                                .charAt(0)
+                                .toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">
+                                {member.user.name || member.user.email}
+                              </p>
+                              <p className="text-muted-foreground text-xs">
+                                {member.user.email}
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            onClick={() =>
+                              setRemovingMember({
+                                memberId: member.user.id,
+                                memberName: member.user.name || member.user.email,
+                                teamId: manageMembersTeam!.id,
+                                teamName: manageMembersTeam!.name,
+                              })
+                            }
+                          >
+                            <UserMinus className="h-4 w-4" />
+                            <span className="sr-only">Remove member</span>
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
+                )}
+                {teamPendingInvites.length > 0 && (
+                  <div>
+                    <div className="bg-muted/50 px-3 py-2 text-xs font-semibold uppercase tracking-wider">
+                      Pending Invites ({teamPendingInvites.length})
+                    </div>
+                    <div className="divide-y">
+                      {teamPendingInvites.map((invite) => (
+                        <div
+                          key={invite.id}
+                          className="flex items-center justify-between p-3"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-sm font-medium opacity-60">
+                              {invite.email.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">{invite.email}</p>
+                              <p className="text-muted-foreground text-xs">
+                                Invited • Pending acceptance
+                              </p>
+                            </div>
+                          </div>
+                          <Badge variant="outline" className="text-xs">
+                            Pending
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

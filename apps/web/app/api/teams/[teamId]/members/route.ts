@@ -22,6 +22,14 @@ interface TeamMemberRow {
   is_lead: number;
 }
 
+interface PendingInviteRow {
+  invite_id: string;
+  email: string;
+  role: string;
+  expires_at: string;
+  created_at: string;
+}
+
 const addMembersSchema = z.object({
   memberIds: z.array(z.string().min(1)).min(1, 'Select at least one member'),
 });
@@ -104,7 +112,32 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     },
   }));
 
-  return success(members);
+  // Get pending invites for this team
+  const invitesResult = await db
+    .prepare(
+      `SELECT
+        id as invite_id,
+        email,
+        role,
+        expires_at,
+        created_at
+      FROM organization_invites
+      WHERE organization_id = ? AND team_id = ? AND accepted_at IS NULL AND expires_at > datetime('now')
+      ORDER BY created_at DESC`
+    )
+    .bind(membership.organization_id, teamId)
+    .all<PendingInviteRow>();
+
+  const pendingInvites = invitesResult.results.map((row: PendingInviteRow) => ({
+    id: row.invite_id,
+    email: row.email,
+    role: row.role,
+    status: 'pending',
+    expiresAt: row.expires_at,
+    createdAt: row.created_at,
+  }));
+
+  return success({ members, pendingInvites });
 }
 
 /**
