@@ -42,6 +42,15 @@ interface InviteMemberInput {
   teamIds?: string[];
 }
 
+export interface InviteMemberResponse {
+  id: string;
+  email: string;
+  role: string;
+  expiresAt: string;
+  inviteUrl: string | null;
+  skipped?: boolean;
+}
+
 interface UpdateMemberInput {
   memberId: string;
   role?: OrganizationRole;
@@ -76,7 +85,7 @@ async function fetchMemberInvites(): Promise<MemberInvite[]> {
   return result.data ?? [];
 }
 
-async function inviteMember(input: InviteMemberInput): Promise<void> {
+async function inviteMember(input: InviteMemberInput): Promise<InviteMemberResponse> {
   const response = await fetch('/api/members/invite', {
     method: 'POST',
     headers: {
@@ -90,6 +99,9 @@ async function inviteMember(input: InviteMemberInput): Promise<void> {
     const error = await response.json();
     throw new Error(error.error || 'Failed to invite member');
   }
+
+  const result = await response.json();
+  return result;
 }
 
 async function updateMember(input: UpdateMemberInput): Promise<MemberListItem> {

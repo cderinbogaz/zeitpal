@@ -244,7 +244,6 @@ export function MembersManagement() {
                   inputValue={inviteEmailInput}
                   onChange={setInviteEmails}
                   onInputChange={setInviteEmailInput}
-                  onSubmit={(emails) => void handleInvite(emails)}
                 />
               </div>
 

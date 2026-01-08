@@ -385,23 +385,24 @@ export function TeamsManagement() {
     setIsInvitingMember(true);
 
     try {
-      const results: Array<{ email: string; ok: boolean; error?: unknown }> = [];
+      const results: Array<{ email: string; ok: boolean; skipped?: boolean; error?: unknown }> = [];
 
       for (const email of emailsToInvite) {
         try {
-          await inviteMember.mutateAsync({
+          const response = await inviteMember.mutateAsync({
             email,
             role: 'member',
             teamIds: [activeTeam.id],
           });
-          results.push({ email, ok: true });
+          results.push({ email, ok: true, skipped: response.skipped });
         } catch (error) {
           results.push({ email, ok: false, error });
         }
       }
 
       const failedInvites = results.filter((result) => !result.ok);
-      const successfulInvites = results.filter((result) => result.ok);
+      const skippedInvites = results.filter((result) => result.ok && result.skipped);
+      const successfulInvites = results.filter((result) => result.ok && !result.skipped);
 
       if (successfulInvites.length > 0) {
         toast.success(
@@ -410,6 +411,14 @@ export function TeamsManagement() {
           }.`
         );
         fetchInvites();
+      }
+
+      if (skippedInvites.length > 0) {
+        toast.info(
+          `${skippedInvites.length} invite${
+            skippedInvites.length > 1 ? 's' : ''
+          } already pending.`
+        );
       }
 
       if (failedInvites.length > 0) {
@@ -975,7 +984,6 @@ export function TeamsManagement() {
                 inputValue={inviteEmailInput}
                 onChange={setInviteEmails}
                 onInputChange={setInviteEmailInput}
-                onSubmit={(emails) => void handleInviteMember(emails)}
               />
               <Button
                 type="button"

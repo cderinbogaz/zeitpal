@@ -18,7 +18,6 @@ type EmailTagsInputProps = {
   id?: string;
   ariaLabel?: string;
   className?: string;
-  onSubmit?: (emails: string[]) => void;
 };
 
 export function EmailTagsInput({
@@ -31,7 +30,6 @@ export function EmailTagsInput({
   id,
   ariaLabel,
   className,
-  onSubmit,
 }: EmailTagsInputProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -47,15 +45,8 @@ export function EmailTagsInput({
 
     if (event.key === 'Enter') {
       event.preventDefault();
-      const nextEmails = inputValue.trim()
-        ? mergeEmails(value, splitEmails(inputValue))
-        : value;
-      if (nextEmails.length === 0) return;
-      if (inputValue.trim()) {
-        onChange(nextEmails);
-        onInputChange('');
-      }
-      onSubmit?.(nextEmails);
+      // Only add the chip, don't trigger submit
+      commitInput();
       return;
     }
 

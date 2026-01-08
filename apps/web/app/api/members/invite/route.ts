@@ -72,15 +72,32 @@ export async function POST(request: NextRequest) {
   // Check if there's already a pending invite for this email
   const existingInvite = await db
     .prepare(
-      `SELECT id FROM organization_invites
+      `SELECT id, expires_at FROM organization_invites
        WHERE organization_id = ? AND email = ? AND accepted_at IS NULL AND expires_at > datetime('now')`
     )
     .bind(membership.organization_id, normalizedEmail)
-    .first();
+    .first<{ id: string; expires_at: string }>();
 
   if (existingInvite) {
-    return conflict('An invite for this email is already pending');
+    // Return success without sending a new invite - one is already pending
+    return created({
+      id: existingInvite.id,
+      email,
+      role,
+      expiresAt: existingInvite.expires_at,
+      inviteUrl: null,
+      skipped: true,
+    });
   }
+
+  // Delete any old expired or accepted invites to avoid UNIQUE constraint violation
+  await db
+    .prepare(
+      `DELETE FROM organization_invites
+       WHERE organization_id = ? AND email = ? AND (accepted_at IS NOT NULL OR expires_at <= datetime('now'))`
+    )
+    .bind(membership.organization_id, normalizedEmail)
+    .run();
 
   // Check if user is already a member
   const existingMember = await db
