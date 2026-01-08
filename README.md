@@ -19,17 +19,17 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/yourusername/zeitpal/stargazers">
-    <img src="https://img.shields.io/github/stars/yourusername/zeitpal?style=social" alt="GitHub Stars">
+  <a href="https://github.com/cderinbogaz/zeitpal/stargazers">
+    <img src="https://img.shields.io/github/stars/cderinbogaz/zeitpal?style=social" alt="GitHub Stars">
   </a>
-  <a href="https://github.com/yourusername/zeitpal/network/members">
-    <img src="https://img.shields.io/github/forks/yourusername/zeitpal?style=social" alt="GitHub Forks">
+  <a href="https://github.com/cderinbogaz/zeitpal/network/members">
+    <img src="https://img.shields.io/github/forks/cderinbogaz/zeitpal?style=social" alt="GitHub Forks">
   </a>
-  <a href="https://github.com/yourusername/zeitpal/blob/main/LICENSE">
+  <a href="https://github.com/cderinbogaz/zeitpal/blob/main/LICENSE">
     <img src="https://img.shields.io/badge/license-Non--Commercial-orange.svg" alt="License">
   </a>
-  <a href="https://github.com/yourusername/zeitpal/actions">
-    <img src="https://img.shields.io/github/actions/workflow/status/yourusername/zeitpal/ci.yml?branch=main" alt="CI Status">
+  <a href="https://github.com/cderinbogaz/zeitpal/actions">
+    <img src="https://img.shields.io/github/actions/workflow/status/cderinbogaz/zeitpal/ci.yml?branch=main" alt="CI Status">
   </a>
 </p>
 
@@ -137,7 +137,7 @@ ZeitPal is built with modern, production-ready technologies:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/zeitpal.git
+git clone https://github.com/cderinbogaz/zeitpal.git
 cd zeitpal
 
 # Install dependencies
@@ -220,7 +220,7 @@ npx wrangler pages deploy apps/web/.next
 
 ### Vercel
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/yourusername/zeitpal)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/cderinbogaz/zeitpal)
 
 ### Docker
 
@@ -277,7 +277,7 @@ We love contributions! ZeitPal is a source-available project and we welcome deve
 ### How to Contribute
 
 1. **Fork** the repository
-2. **Clone** your fork: `git clone https://github.com/your-username/zeitpal.git`
+2. **Clone** your fork: `git clone https://github.com/cderinbogaz/zeitpal.git`
 3. **Create** a branch: `git checkout -b feature/amazing-feature`
 4. **Make** your changes
 5. **Test** your changes: `pnpm run lint && pnpm run typecheck`
@@ -287,7 +287,7 @@ We love contributions! ZeitPal is a source-available project and we welcome deve
 
 ### Good First Issues
 
-Looking for a place to start? Check out issues labeled [`good first issue`](https://github.com/yourusername/zeitpal/labels/good%20first%20issue).
+Looking for a place to start? Check out issues labeled [`good first issue`](https://github.com/cderinbogaz/zeitpal/labels/good%20first%20issue).
 
 ### Development Guidelines
 
@@ -308,15 +308,14 @@ Looking for a place to start? Check out issues labeled [`good first issue`](http
 - [ ] Multi-language support (FR, ES, IT)
 - [ ] Advanced analytics dashboard
 
-See the [open issues](https://github.com/yourusername/zeitpal/issues) for a full list of proposed features.
+See the [open issues](https://github.com/cderinbogaz/zeitpal/issues) for a full list of proposed features.
 
 ---
 
 ## Community
 
-- **Discussions:** [GitHub Discussions](https://github.com/yourusername/zeitpal/discussions)
-- **Issues:** [GitHub Issues](https://github.com/yourusername/zeitpal/issues)
-- **Twitter/X:** [@zeitpal](https://twitter.com/zeitpal)
+- **Discussions:** [GitHub Discussions](https://github.com/cderinbogaz/zeitpal/discussions)
+- **Issues:** [GitHub Issues](https://github.com/cderinbogaz/zeitpal/issues)
 
 ---
 
@@ -332,7 +331,7 @@ See the [open issues](https://github.com/yourusername/zeitpal/issues) for a full
 
 ZeitPal is free for non-commercial use. If you find it useful, please consider sponsoring:
 
-<a href="https://github.com/sponsors/yourusername">
+<a href="https://github.com/sponsors/cderinbogaz">
   <img src="https://img.shields.io/badge/Sponsor-❤️-pink?style=for-the-badge" alt="Sponsor">
 </a>
 
