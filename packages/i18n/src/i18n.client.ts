@@ -42,14 +42,23 @@ export async function initializeI18nClient(
     });
 
   // Wait for all required namespaces to be loaded
-  const namespaces = Array.isArray(settings.ns) ? settings.ns : [settings.ns];
+  const namespaces = Array.isArray(settings.ns)
+    ? settings.ns
+    : settings.ns
+      ? [settings.ns]
+      : [];
   const language = settings.lng || i18next.language;
 
-  await Promise.all(
-    namespaces.map((ns) =>
-      i18next.loadNamespaces(ns).then(() => i18next.loadLanguages(language)),
-    ),
-  );
+  // Only load if we have namespaces to load
+  if (namespaces.length > 0 && language) {
+    // Load namespaces and language sequentially to avoid Cloudflare Workers fetch limits
+    for (const ns of namespaces) {
+      if (ns) {
+        await i18next.loadNamespaces(ns);
+      }
+    }
+    await i18next.loadLanguages(language);
+  }
 
   return i18next;
 }

@@ -13,6 +13,8 @@ export async function i18nResolver(
   const response = await fetch(url.toString());
 
   if (!response.ok) {
+    // Cancel the response body to prevent stalled HTTP response warnings
+    await response.body?.cancel();
     throw new Error(
       `Failed to load i18n file: locales/${language}/${namespace}.json`,
     );
