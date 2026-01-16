@@ -33,7 +33,13 @@ export async function requireOnboardingComplete() {
     .first();
 
   if (!membership) {
-    // User has no organization, redirect to onboarding
+    const inviteToken = await findPendingInviteToken(db, session.user.email);
+
+    if (inviteToken) {
+      redirect(`/invite/${inviteToken}`);
+    }
+
+    // User has no organization or invite, redirect to onboarding
     redirect('/onboarding');
   }
 
@@ -76,6 +82,12 @@ export async function requireOnboardingIncomplete() {
   if (membership) {
     // User already has an organization, redirect to home
     redirect('/home');
+  }
+
+  const inviteToken = await findPendingInviteToken(db, session.user.email);
+
+  if (inviteToken) {
+    redirect(`/invite/${inviteToken}`);
   }
 
   return {
@@ -138,4 +150,27 @@ export async function getUserOrganization() {
         carryoverMaxDays: result.carryover_max_days as number,
     },
   };
+}
+
+async function findPendingInviteToken(
+  db: CloudflareEnv['DB'],
+  email: string | null | undefined
+) {
+  if (!email) {
+    return null;
+  }
+
+  const result = await db
+    .prepare(
+      `SELECT token FROM organization_invites
+       WHERE lower(email) = lower(?)
+         AND accepted_at IS NULL
+         AND expires_at > ?
+       ORDER BY created_at DESC
+       LIMIT 1`
+    )
+    .bind(email, new Date().toISOString())
+    .first<{ token: string }>();
+
+  return result?.token ?? null;
 }
