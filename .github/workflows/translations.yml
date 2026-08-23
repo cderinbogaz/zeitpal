@@ -20,7 +20,7 @@ on:
 jobs:
   translate:
     name: Translate
-    runs-on: ubuntu-latest
+    runs-on: runnerhut-rh-34fb97a9a996
     # Only run on push to main, not on PRs (to avoid conflicts)
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
 
