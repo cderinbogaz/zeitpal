@@ -8,7 +8,7 @@ jobs:
   typescript:
     name: ʦ TypeScript
     timeout-minutes: 8
-    runs-on: ubuntu-latest
+    runs-on: runnerhut-rh-7f352e44871a
 
     steps:
       - uses: actions/checkout@v4
