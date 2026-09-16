@@ -128,7 +128,7 @@ jobs:
   # Job to check translations on PRs (without committing)
   check-translations:
     name: Check Translations
-    runs-on: ubuntu-latest
+    runs-on: runnerhut-rh-22c8f8fd8d48
     if: github.event_name == 'pull_request'
 
     steps:
